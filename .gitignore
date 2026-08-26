@@ -1,0 +1,12 @@
+.docs/
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.luac
+*.orig
+*.rej
+luacov.*
+hansel.koplugin.zip
