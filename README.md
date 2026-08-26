@@ -1,15 +1,18 @@
 # Hansel
 
+[![KOReader 2024.12+](https://img.shields.io/badge/KOReader-2024.12%2B-222)](https://koreader.rocks/)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+[![Lua](https://img.shields.io/badge/Lua-5.1-blue)](https://www.lua.org/)
+[![Grimmory](https://img.shields.io/badge/Grimmory-library-555)](https://grimmory.org)
+
 KOReader starts in your Grimmory library.
 
 You have a device with space. You would rather not live in the vendor reader. Install [KOReader](https://koreader.rocks/), sign Hansel into [Grimmory](https://grimmory.org), tap a cover. Downloads stay on the device. You do not keep a second file tree.
 
-<!-- screenshots: drop images in docs/screens and uncomment
-<p align="center">
-  <img src="docs/screens/home.png" width="240" alt="Cover grid">
-  <img src="docs/screens/drawer.png" width="240" alt="Library drawer">
-  <img src="docs/screens/detail.png" width="240" alt="Book detail">
-</p>
+<!-- screenshots: drop portrait E-Ink PNGs in docs/screens/ then uncomment
+| Cover grid | Library drawer | Book detail |
+| :---: | :---: | :---: |
+| <img src="docs/screens/home.png" width="240" alt="Cover grid"> | <img src="docs/screens/drawer.png" width="240" alt="Library drawer"> | <img src="docs/screens/detail.png" width="240" alt="Book detail"> |
 -->
 
 Requires KOReader 2024.12+. Works anywhere KOReader runs plugins (Android, Kindle, Kobo).
@@ -26,7 +29,7 @@ Also listed in the [KOReader App Store](https://github.com/omer-faruq/appstore.k
 
 ## Sign in
 
-Server URL, Grimmory username, password. After that you can turn on Auto sync so progress follows you.
+Server URL (`http://your-host:6060`), Grimmory username, password. After that you can turn on Auto sync so progress follows you.
 
 ## Settings
 
@@ -55,6 +58,6 @@ Not the official Grimmory plugin. If [`grimmory.koplugin`](https://github.com/gr
 
 ## License
 
-[AGPL-3.0](LICENSE). Not affiliated with Grimmory.
+[AGPL-3.0](LICENSE). Not affiliated with Grimmory. See [CHANGELOG](CHANGELOG.md) and [CONTRIBUTING](CONTRIBUTING.md).
 
 Designed with AI assistance. The plugin is reviewed and tested as a normal KOReader project.
