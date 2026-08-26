@@ -69,4 +69,10 @@ Reopened.update({
 eq(flushes - before, 1, "critical update flushes once")
 eq(Reopened.get("t2_token_expires_at"), 99, "critical update writes tokens")
 
+eq(Reopened.hide_unavailable(), true, "hide unavailable defaults on")
+Reopened.set("hide_unavailable", false)
+eq(Reopened.hide_unavailable(), false, "hide unavailable can be turned off")
+Reopened.set("hide_unavailable", true)
+eq(Reopened.hide_unavailable(), true, "hide unavailable can be turned back on")
+
 print("settings: " .. checks .. " ok")

@@ -36,6 +36,7 @@ local Home = Base:extend{
 local VIEW_TITLE = {
     all = _("All Books"),
     dashboard = _("Dashboard"),
+    on_device = _("On this device"),
     categories = _("Categories"),
     tags = _("Tags"),
     series = _("Series"),
@@ -54,6 +55,7 @@ function Home:setup()
     self.trail = { { title = VIEW_TITLE[self.view] or _("All Books"), view = self.view } }
     self.offline = false
     self.unavailable = false
+    self.hide_unavailable_active = false
     self.error_kind = nil
     self._tile_rects = {}
     UIManager:nextTick(function()
@@ -173,16 +175,9 @@ function Home:build(draw)
     })
 
     local content_top = header_h
-    if self.unavailable and #(self.books or {}) > 0 then
+    if self.hide_unavailable_active and #(self.books or {}) > 0 then
         local face = Theme.mono("tiny")
-        local message
-        if self.error_kind == "auth_required" or self.error_kind == "forbidden" then
-            message = _("Sign-in needs attention — showing saved books")
-        elseif self.error_kind == "server_error" then
-            message = _("Grimmory is unavailable — showing saved books")
-        else
-            message = _("Offline — showing saved books")
-        end
+        local message = _("Showing books on this device")
         local banner_h = draw:label_height(face) + S(8) * 2 + Theme.hair
         draw:fill(0, content_top, w, banner_h, Theme.paper)
         draw:text(Theme.pad, content_top + S(8), message, face, Theme.graphite,
@@ -445,6 +440,9 @@ function Home:reload(force_network)
         local size = Settings.page_size()
         local result
         local st = Filter.state()
+        if self.view == "on_device" then
+            st = Filter.on_device(st)
+        end
         if self.feed_url then
             result = Library.fetch_feed(self.feed_url, self.page, size)
         elseif self.view == "categories" or self.view == "tags"
@@ -462,10 +460,12 @@ function Home:reload(force_network)
         if result.page then self.page = result.page end
         local hydrated = Books.hydrate_list(result.books or {})
         Filter.note_formats(hydrated)
-        if self.view == "all" and not self.feed_url then
+        local applied = Filter.effective(st, result.unavailable)
+        local grid_view = (self.view == "all" or self.view == "on_device") and not self.feed_url
+        if grid_view then
             self.books = hydrated
         else
-            self.books = Filter.apply(hydrated)
+            self.books = Filter.apply(hydrated, applied)
         end
         self.total = result.total or #self.books
         if self.view == "all" and not self.feed_url and not Filter.active() then
@@ -483,13 +483,15 @@ function Home:reload(force_network)
                 Settings.set_library_total(n)
             end
         end
-        if Filter.active() and not (self.view == "all" and not self.feed_url) then
+        if Filter.active(applied) and not grid_view then
             self.total = #self.books
         end
         self.offline = result.offline and true or false
         self.unavailable = result.unavailable and true or false
+        self.hide_unavailable_active = (result.unavailable and Settings.hide_unavailable()) and true or false
         self.error_kind = result.error_kind
         self.source = result.source
+        self.counts = result.counts
         Settings.set("last_page", self.page)
         Trapper:clear()
         if self._closed then return end
@@ -558,6 +560,8 @@ function Home:_dashboard(size)
         books = books,
         total = #books,
         offline = recent and recent.offline,
+        unavailable = recent and recent.unavailable,
+        error_kind = recent and recent.error_kind,
         page = 1,
         size = size,
     }

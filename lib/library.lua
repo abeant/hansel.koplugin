@@ -357,14 +357,15 @@ function Library.query(state, page, size, force_network)
     base = base or cached_failure("all", page, size)
 
     local unified = unified_snapshot(base.books)
+    local effective, hid = Filter.effective(state, base.unavailable)
     local source
-    if state.device == "downloaded" or state.device == "pinned" then
+    if effective.device == "downloaded" or effective.device == "pinned" then
         source = unified.local_books
     else
         source = unified.known
     end
 
-    local filtered = Filter.apply(source, state)
+    local filtered = Filter.apply(source, effective)
     local total = #filtered
     if base.unavailable then
         local last_page = math.max(1, math.ceil(math.max(total, 1) / size))
@@ -395,6 +396,7 @@ function Library.query(state, page, size, force_network)
         source = base.source or (base.offline and "cache" or "network"),
         stale = base.stale and true or false,
         fetched_at = base.fetched_at,
+        hide_unavailable_active = hid or (base.unavailable and Settings.hide_unavailable()) or false,
     }
 end
 

@@ -107,12 +107,33 @@ local remote_state = {
 }
 
 env.NetworkMgr.online = false
+eq(Settings.hide_unavailable(), true, "hide unavailable defaults on")
+local hidden = Library.query(all_state, 1, 20)
+eq(#hidden.books, 4, "hide unavailable drops remote catalog books")
+eq(hidden.known_total, 4, "hide unavailable pager is downloaded ∪ pinned")
+ok(hidden.hide_unavailable_active, "hide unavailable marks the overlay")
+for _, book in ipairs(hidden.books) do
+    ok(book.state ~= "remote", "hide unavailable excludes remote records")
+end
+eq(all_state.device, "all", "hide unavailable does not persist the overlay")
+
+Settings.set("hide_unavailable", false)
 local all = Library.query(all_state, 1, 20)
-eq(#all.books, 5, "All unions cached server and four downloads")
+eq(#all.books, 5, "All unions cached server and four downloads when hide is off")
 eq(all.known_total, 5, "server/local duplicate removed by Grimmory id")
 eq(all.total, 5, "offline pager exposes saved books rather than ghost server pages")
 ok(all.unavailable and all.error_kind == "offline", "saved library reports offline quietly")
+ok(not all.hide_unavailable_active, "hide unavailable off never auto-flips")
 
+Settings.set("hide_unavailable", true)
+local still_hidden = Library.query(all_state, 1, 20)
+eq(#still_hidden.books, 4, "turning hide back on restores the overlay")
+eq(all_state.device, "all", "committed All filter survives the overlay")
+local hidden_remote = Library.query(remote_state, 1, 20)
+eq(#hidden_remote.books, 4, "hide unavailable overlays Server only onto on-device books")
+eq(remote_state.device, "remote", "Server only filter is not rewritten")
+
+Settings.set("hide_unavailable", false)
 local downloaded = Library.query(downloaded_state, 1, 20)
 eq(#downloaded.books, 4, "Downloaded remains local-only offline")
 for _, book in ipairs(downloaded.books) do

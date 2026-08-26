@@ -41,6 +41,19 @@ function Panel:build(draw)
     draw:fill(0, y, w, Theme.hair, Theme.ash)
     y = y + Theme.hair
 
+    local hide = Settings.hide_unavailable()
+    y = y + Parts.row(draw, 0, y, w, _("Hide unavailable books"), {
+        help = _("When this device can't reach Grimmory, only show books already on it."),
+        control = function(d, right, ry, rh)
+            return Parts.switch(d, right, ry, rh, hide, function()
+                Settings.set("hide_unavailable", not hide)
+                self:refresh_home()
+                self:notify_changed()
+                self:rebuild("ui")
+            end)
+        end,
+    })
+
     local prefetch = Settings.get("prefetch_next_page_covers") and true or false
     y = y + Parts.row(draw, 0, y, w, _("Prefetch next page covers"), {
         control = function(d, right, ry, rh)

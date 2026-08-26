@@ -36,6 +36,7 @@ local DEFAULTS = {
     last_view = "all",
     last_page = 1,
     last_filter = "all",
+    hide_unavailable = true,
 }
 
 local Settings = {
@@ -317,6 +318,11 @@ end
 
 function Settings.cover_budget()
     return tonumber(Settings.get("cover_budget_bytes")) or DEFAULTS.cover_budget_bytes
+end
+
+--- When Grimmory is unreachable, only show downloaded ∪ pinned. Default on.
+function Settings.hide_unavailable()
+    return Settings.get("hide_unavailable") ~= false
 end
 
 function Settings.defaults()
