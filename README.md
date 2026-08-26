@@ -19,7 +19,7 @@ Requires KOReader 2024.12+. Works anywhere KOReader runs plugins (Android, Kindl
 
 ## Install
 
-Copy `hansel.koplugin` into KOReader’s `plugins` folder, restart, enable **Hansel** under Tools → Plugin management, then:
+Unzip `hansel.koplugin.zip` into KOReader’s `plugins` folder (so you have `plugins/hansel.koplugin/_meta.lua`), restart, enable **Hansel** under Tools → Plugin management, then:
 
 **File Manager → Settings → Start with → hansel**
 

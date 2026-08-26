@@ -235,14 +235,14 @@ function Session.request(method, path, opts)
     if not ok and status == 401 then
         access_token = nil
         access_expires_at = 0
-        local token_error
-        token, token_error = Session.ensure_token(true)
+        local retry_error
+        token, retry_error = Session.ensure_token(true)
         if token then
             retried = true
             ok, status, body = send(token)
-        elseif token_error then
-            token_error.retried = false
-            return token_error
+        elseif retry_error then
+            retry_error.retried = false
+            return retry_error
         end
     end
     if ok then
@@ -272,13 +272,13 @@ function Session.with_bearer(call)
     if not ok and status == 401 then
         access_token = nil
         access_expires_at = 0
-        local token_error
-        token, token_error = Session.ensure_token(true)
+        local retry_error
+        token, retry_error = Session.ensure_token(true)
         if token then
             retried = true
             ok, status, body, headers = call(token)
-        elseif token_error then
-            return false, token_error.status, token_error.body, nil, token_error
+        elseif retry_error then
+            return false, retry_error.status, retry_error.body, nil, retry_error
         end
     end
     local response

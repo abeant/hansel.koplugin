@@ -4,7 +4,6 @@ local Paths = require("lib.paths")
 local Settings = require("lib.settings")
 local UIManager = require("ui/uimanager")
 local lfs = require("libs/libkoreader-lfs")
-local logger = require("logger")
 
 local Covers = {}
 

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  luacheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Luacheck
+        uses: lunarmodules/luacheck@v1.2.0
+        with:
+          args: --no-self _meta.lua main.lua lib ui
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y luajit
+      - name: Tests
+        run: ./tests/run.sh
+        env:
+          LUA: luajit
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package zip
+        run: ./scripts/package.sh
+      - name: Check zip root
+        run: |
+          first="$(unzip -Z -1 hansel.koplugin.zip | head -n 1)"
+          echo "$first"
+          case "$first" in
+            hansel.koplugin/*|hansel.koplugin) ;;
+            *) echo "zip is not rooted at hansel.koplugin/" >&2; exit 1 ;;
+          esac
+          unzip -l hansel.koplugin.zip | grep -q 'hansel.koplugin/_meta.lua'

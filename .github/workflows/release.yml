@@ -1,0 +1,30 @@
+name: Draft release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp version
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/version = \".*\"/version = \"${VERSION}\"/" _meta.lua
+      - name: Package
+        run: ./scripts/package.sh
+      - name: Draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release create "$GITHUB_REF_NAME" hansel.koplugin.zip \
+            --draft \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file CHANGELOG.md

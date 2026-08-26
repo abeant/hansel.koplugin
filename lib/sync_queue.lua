@@ -39,7 +39,7 @@ function Queue.put(book_id, snapshot, account_key)
     local previous = bucket.entries[key]
     sequence = sequence + 1
     local copy = {}
-    for key, value in pairs(snapshot) do copy[key] = value end
+    for field, value in pairs(snapshot) do copy[field] = value end
     copy.book_id = key
     copy.sequence = os.time() * 1000 + sequence
     copy.captured_at = copy.captured_at or os.time()
