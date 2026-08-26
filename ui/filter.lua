@@ -122,8 +122,35 @@ function Filter.state(home)
     local bag = dest_bag()
     local saved = bag[id]
     if type(saved) == "table" then return normalize(saved) end
+    if id == "v:on_device" then
+        local st = defaults()
+        st.device = "downloaded"
+        return st
+    end
     if id == "v:all" then return legacy_global() end
     return defaults()
+end
+
+--- Downloaded ∪ pinned - the same set as today's Downloaded chip.
+function Filter.on_device(state)
+    local st = normalize(state or Filter.state())
+    st.device = "downloaded"
+    return st
+end
+
+--- Overlay downloaded ∪ pinned while Grimmory is unreachable and the setting
+--- is on. Does not persist; the committed filter returns as soon as `unavailable`
+--- is false.
+function Filter.effective(state, unavailable)
+    local st = normalize(state or Filter.state())
+    if not unavailable or not Settings.hide_unavailable() then
+        return st, false
+    end
+    if st.device == "downloaded" or st.device == "pinned" then
+        return st, false
+    end
+    st.device = "downloaded"
+    return st, true
 end
 
 function Filter.save(state, home)

@@ -6,6 +6,7 @@ local _ = require("gettext")
 local T = require("ffi/util").template
 
 local Base = require("ui.base")
+local CacheMap = require("lib.cache_map")
 local Nav = require("lib.nav")
 local Parts = require("ui.parts")
 local Settings = require("lib.settings")
@@ -92,6 +93,12 @@ function Drawer:_rows()
             icon = "book", label = _("All Books"), count = tostring(total),
             on = view == "all" and not (home and home.feed_url),
             action = function() if home then home:set_view("all") end end,
+        },
+        {
+            icon = "tray", label = _("On this device"),
+            count = tostring(#(CacheMap.on_device_ids and CacheMap.on_device_ids() or {})),
+            on = view == "on_device" and not (home and home.feed_url),
+            action = function() if home then home:set_view("on_device") end end,
         },
         {
             icon = "folder", label = _("Categories"), count = ncount("categories"),

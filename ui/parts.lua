@@ -280,7 +280,7 @@ end
 
 -- ---------- .row (settings) ----------
 
---- `opts`: value, chevron, callback, control = function(draw, x, y, h) -> width
+--- `opts`: value, chevron, callback, control = function(draw, x, y, h) -> width, help
 function Parts.row(draw, x, y, w, label, opts)
     opts = opts or {}
     local face = Theme.mono()
@@ -288,28 +288,39 @@ function Parts.row(draw, x, y, w, label, opts)
     local icon_gap = opts.icon and S(9) or 0
     local label_w = math.floor(w * 0.6) - glyph - icon_gap
     local widget, _, th = draw:label(label, face, Theme.ink, label_w)
-    local h = math.max(th, S(20)) + S(11) * 2
+    local help_box
+    if opts.help then
+        help_box = draw:para_box(opts.help, Theme.mono("tiny"),
+            w - Theme.pad * 2, 3, Theme.graphite, "left")
+    end
+    local title_h = math.max(th, S(20))
+    local top, bot, gap = S(11), S(11), help_box and S(4) or 0
+    local h = top + title_h + gap + (help_box and help_box.h or 0) + bot
+    local band_h = top + title_h + bot
     local label_x = x + Theme.pad
     if opts.icon then
-        draw:icon(opts.icon, label_x, y + math.floor((h - glyph) / 2), glyph, Theme.ink)
+        draw:icon(opts.icon, label_x, y + math.floor((band_h - glyph) / 2), glyph, Theme.ink)
         label_x = label_x + glyph + icon_gap
     end
-    draw:place(widget, label_x, y + math.floor((h - th) / 2))
+    draw:place(widget, label_x, y + math.floor((band_h - th) / 2))
 
     local right = x + w - Theme.pad
     if opts.chevron then
         local side = S(11)
-        draw:icon("right", right - side, y + math.floor((h - side) / 2), side, Theme.graphite)
+        draw:icon("right", right - side, y + math.floor((band_h - side) / 2), side, Theme.graphite)
         right = right - side - S(8)
     end
     if opts.control then
-        right = right - opts.control(draw, right, y, h)
+        right = right - opts.control(draw, right, y, band_h)
         right = right - S(8)
     end
     if opts.value then
         local vface = Theme.mono("small")
-        draw:text_right(right, y + math.floor((h - draw:label_height(vface)) / 2),
+        draw:text_right(right, y + math.floor((band_h - draw:label_height(vface)) / 2),
             opts.value, vface, Theme.graphite, math.floor(w * 0.45))
+    end
+    if help_box then
+        draw:place(help_box.widget, x + Theme.pad, y + top + title_h + gap)
     end
     draw:fill(x, y + h, w, Theme.hair, Theme.ash)
     if opts.callback then

@@ -61,6 +61,7 @@ package.loaded["lib.cache_map"] = {
     set_pinned = function() end,
     remove = function() end,
     continue_ids = function() return { "1", "2" } end,
+    on_device_ids = function() return { "1" } end,
     usage_bytes = function() return 800 * 1024 * 1024 end,
     free_unpinned = function() end,
     mark_opened = function() end,
@@ -181,6 +182,15 @@ home.total = 0
 home:rebuild()
 paint(home, "home empty")
 home.books = saved
+home.unavailable = true
+home.hide_unavailable_active = true
+home:rebuild()
+paint(home, "home hide-unavailable banner")
+local banner_text = collected_text(home)
+ok(banner_text["Showing books on this device"], "home missing hide-unavailable banner")
+ok(not banner_text["Offline - showing saved books"], "home kept the old offline banner")
+home.unavailable = false
+home.hide_unavailable_active = false
 home:rebuild()
 
 -- ---------- drawer ----------
@@ -189,6 +199,9 @@ local Drawer = require("ui.drawer")
 local drawer = Drawer:new{ home = home }
 paint(drawer, "drawer")
 ok(drawer.panel and drawer.panel.w < env.Screen.getWidth(), "drawer is not a panel")
+local drawer_text = collected_text(drawer)
+ok(drawer_text["On this device"], "drawer missing On this device row")
+ok(drawer_text["All Books"], "drawer missing All Books row")
 UIManager:close(drawer)
 tap_everything(function() return Drawer:new{ home = home } end, "drawer")
 
@@ -214,6 +227,28 @@ UIManager:drain()
 -- Filtering and sorting actually do something.
 local Books = require("lib.books")
 ok(Books.read_status(BOOKS[1]) == "unread", "read status default")
+local open_status = { unread = true, reading = true, finished = true }
+local overlay, hid = Filter.effective({
+    device = "all", status = open_status, formats = {}, sort_key = "added", sort_dir = "desc",
+}, true)
+ok(hid and overlay.device == "downloaded", "effective overlay uses downloaded ∪ pinned")
+local already, hid_already = Filter.effective({
+    device = "downloaded", status = open_status, formats = {}, sort_key = "added", sort_dir = "desc",
+}, true)
+ok(not hid_already and already.device == "downloaded", "already on-device is not an auto-flip")
+local restored, hid_restored = Filter.effective({
+    device = "all", status = open_status, formats = {}, sort_key = "added", sort_dir = "desc",
+}, false)
+ok(not hid_restored and restored.device == "all", "reachable Grimmory restores the committed filter")
+Settings.set("hide_unavailable", false)
+local noflip, hid_off = Filter.effective({
+    device = "all", status = open_status, formats = {}, sort_key = "added", sort_dir = "desc",
+}, true)
+ok(not hid_off and noflip.device == "all", "hide unavailable off never auto-flips")
+Settings.set("hide_unavailable", true)
+ok(Filter.state({ view = "on_device" }).device == "downloaded",
+    "On this device dest defaults to downloaded ∪ pinned")
+
 local pinned_only = Filter.apply(BOOKS, {
     device = "pinned", status = { unread = true, reading = true, finished = true },
     formats = {}, sort_key = "title", sort_dir = "asc",
@@ -287,6 +322,7 @@ local library_panel = UIManager.stack[#UIManager.stack]
 ok(library_panel ~= nil, "library settings did not open")
 paint(library_panel, "library settings")
 local library_text = collected_text(library_panel)
+ok(library_text["Hide unavailable books"], "library settings missing Hide unavailable books")
 ok(library_text["Comfortable"], "library settings missing Comfortable grid label")
 ok(library_text["Compact"], "library settings missing Compact grid label")
 ok(library_text["Dense"], "library settings missing Dense grid label")
