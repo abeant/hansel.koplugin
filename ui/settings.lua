@@ -112,6 +112,12 @@ function Panel:build(draw)
         value = connection_value(session.kind),
     })
     y = y + Parts.row(draw, 0, y, w, _("Auto sync"), SettingsUI.auto_sync_opts(self))
+    y = y + Parts.row(draw, 0, y, w, _("Test connection"), {
+        chevron = true,
+        callback = function()
+            require("ui.setup").test_now()
+        end,
+    })
     y = y + Parts.menu_separator(draw, 0, y, w)
     y = y + Parts.row(draw, 0, y, w, _("Grimmory account"), {
         icon = "person",

@@ -1,5 +1,7 @@
+local InfoMessage = require("ui/widget/infomessage")
 local UIManager = require("ui/uimanager")
 local logger = require("logger")
+local _ = require("gettext")
 
 local Komenu = {}
 
@@ -24,6 +26,10 @@ function Komenu.show(home)
     local ui = host(home)
     if not ui then
         logger.warn("[hansel] KOReader menu: no File Manager")
+        UIManager:show(InfoMessage:new{
+            text = _("Open File Manager to use the KOReader menu."),
+            timeout = 3,
+        })
         return false
     end
     UIManager:nextTick(function()

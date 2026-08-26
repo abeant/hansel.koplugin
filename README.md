@@ -32,9 +32,20 @@ Server URL, Grimmory username, password. After that you can turn on Auto sync so
 
 - **Start with** — KOReader boots into the cover grid instead of File Manager.
 - **Auto sync** — after account login, progress follows you (percent + XPointer). Off until you turn it on. Stands down if the official Grimmory plugin is already syncing.
-- **Hide unavailable books** — when this device can’t reach Grimmory, only show books already on it.
-- **On this device** — drawer row. Same list, on purpose.
+- **Test connection** — ping Grimmory from Settings without leaving the screen.
+- **Hide unavailable books** — when this device can't reach Grimmory, only show books already on it.
+- **On this device** — drawer row for downloaded ∪ pinned. Settings has a separate storage panel under the same name.
 - **Pin** — keep a downloaded book when you would otherwise evict it.
+- **Grid density** — Comfortable (3×3), Compact (4×4), Dense (5×4).
+- **Prefetch next page covers** — fetch the next page of cover art while you read this one.
+
+## Tools → Hansel
+
+- **Show library** — open the cover grid.
+- **Dashboard** — continue plus recently added.
+- **All Books** — the full library.
+- **Hansel settings** — server, account, sync, and library.
+- **Close Hansel** — return to File Manager.
 
 ## Why this exists
 

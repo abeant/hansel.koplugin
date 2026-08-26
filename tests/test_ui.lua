@@ -216,6 +216,15 @@ ok(sheet ~= nil, "filter sheet did not open")
 paint(sheet, "filter sheet")
 ok(sheet.panel and sheet.panel.y > 0, "filter sheet is not anchored to the bottom")
 ok(sheet.panel.y + sheet.panel.h == env.Screen.getHeight(), "filter sheet misses the bottom edge")
+local sheet_text = collected_text(sheet)
+ok(sheet_text["EPUB"] and sheet_text["PDF"] and sheet_text["CBZ"],
+    "filter format labels are not uppercase")
+ok(not sheet_text["epub"] and not sheet_text["pdf"] and not sheet_text["cbz"],
+    "filter format labels still show lowercase")
+ok(sheet.state.formats and next(sheet.state.formats) == nil,
+    "no format filter should start empty, not all-on")
+ok(sheet.state.status and next(sheet.state.status) == nil,
+    "no status filter should start empty, not all-on")
 UIManager:close(sheet)
 tap_everything(function()
     UIManager.stack = {}
@@ -271,6 +280,28 @@ local epub_only = Filter.apply(BOOKS, {
 })
 for _, b in ipairs(epub_only) do ok(b.file_type == "epub", "format filter leaked a book") end
 
+local no_status = Filter.apply(BOOKS, {
+    device = "all", status = {}, formats = {}, sort_key = "added", sort_dir = "desc",
+})
+ok(#no_status == #BOOKS, "empty status is no filter, not match-nothing")
+local all_status = Filter.apply(BOOKS, {
+    device = "all", status = { unread = true, reading = true, finished = true },
+    formats = {}, sort_key = "added", sort_dir = "desc",
+})
+ok(#all_status == #BOOKS, "all-on status is no filter")
+ok(not Filter.active({
+    device = "all", status = {}, formats = {}, sort_key = "added", sort_dir = "desc",
+}), "empty filters are inactive")
+ok(not Filter.active({
+    device = "all", status = { unread = true, reading = true, finished = true },
+    formats = { epub = true, pdf = true, cbz = true }, sort_key = "added", sort_dir = "desc",
+}), "all-on formats/status collapse to inactive")
+ok(Filter.active({
+    device = "all", status = { unread = true }, formats = {},
+    sort_key = "added", sort_dir = "desc",
+}), "partial status is active")
+ok(Filter.format_label("epub") == "EPUB", "format_label uppercases")
+
 -- ---------- detail ----------
 
 local Detail = require("ui.detail")
@@ -300,8 +331,8 @@ local panel = UIManager.stack[#UIManager.stack]
 ok(panel ~= nil, "settings did not open")
 paint(panel, "settings")
     local settings_text = collected_text(panel)
-    for _, row in ipairs({ "Server", "Connection", "Auto sync", "Grimmory account",
-                           "Library", "On this device" }) do
+    for _, row in ipairs({ "Server", "Connection", "Auto sync", "Test connection",
+                           "Grimmory account", "Library", "On this device" }) do
         ok(settings_text[row], "settings missing row " .. row)
     end
     ok(not settings_text["3×3"], "settings index leaks Library implementation detail")

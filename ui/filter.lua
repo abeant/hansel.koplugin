@@ -46,7 +46,9 @@ local SORTS = {
 }
 
 -- Formats seen in the catalog so far, so the sheet lists what you actually own.
-local _seen_formats = { epub = true, pdf = true }
+local _seen_formats = { epub = true, pdf = true, cbz = true }
+
+local STATUS_IDS = { "unread", "reading", "finished" }
 
 local function copy(t)
     local out = {}
@@ -54,8 +56,39 @@ local function copy(t)
     return out
 end
 
+--- Empty = no filter. All-on is the same meaning, so store it as empty.
 local function default_status()
-    return { unread = true, reading = true, finished = true }
+    return {}
+end
+
+local function all_selected(map, keys)
+    if type(map) ~= "table" or next(map) == nil then return false end
+    for _, key in ipairs(keys) do
+        if not map[key] then return false end
+    end
+    return true
+end
+
+--- True when the map actually restricts the set (not empty, not all-on).
+local function is_restricted(map, keys)
+    if type(map) ~= "table" or next(map) == nil then return false end
+    if keys and all_selected(map, keys) then return false end
+    return true
+end
+
+local function toggle_flag(map, key, keys)
+    if next(map) == nil then
+        map[key] = true
+        return
+    end
+    if map[key] then
+        map[key] = nil
+    else
+        map[key] = true
+        if keys and all_selected(map, keys) then
+            for k in pairs(map) do map[k] = nil end
+        end
+    end
 end
 
 local function dest_id(home)
@@ -83,34 +116,36 @@ local function defaults()
     }
 end
 
+local function normalize_status(status)
+    if type(status) ~= "table" then return {} end
+    if next(status) == nil or all_selected(status, STATUS_IDS) then return {} end
+    return copy(status)
+end
+
+local function normalize_formats(formats)
+    if type(formats) ~= "table" or next(formats) == nil then return {} end
+    local seen = {}
+    for ext in pairs(_seen_formats) do seen[#seen + 1] = ext end
+    if #seen > 0 and all_selected(formats, seen) then return {} end
+    return copy(formats)
+end
+
 local function normalize(raw)
     if type(raw) ~= "table" then return defaults() end
-    local status = raw.status
-    if type(status) ~= "table" or next(status) == nil then
-        status = default_status()
-    end
-    local formats = raw.formats
-    if type(formats) ~= "table" then formats = {} end
     return {
         device = raw.device or "all",
-        status = copy(status),
-        formats = copy(formats),
+        status = normalize_status(raw.status),
+        formats = normalize_formats(raw.formats),
         sort_key = raw.sort_key or "added",
         sort_dir = raw.sort_dir or "desc",
     }
 end
 
 local function legacy_global()
-    local status = Settings.get("filter_status")
-    if type(status) ~= "table" or next(status) == nil then
-        status = default_status()
-    end
-    local formats = Settings.get("filter_formats")
-    if type(formats) ~= "table" then formats = {} end
     return {
         device = Settings.get("last_filter") or "all",
-        status = copy(status),
-        formats = copy(formats),
+        status = normalize_status(Settings.get("filter_status")),
+        formats = normalize_formats(Settings.get("filter_formats")),
         sort_key = Settings.get("sort_key") or "added",
         sort_dir = Settings.get("sort_dir") or "desc",
     }
@@ -168,10 +203,12 @@ end
 function Filter.active(state)
     local st = state or Filter.state()
     if st.device ~= "all" then return true end
-    for _, opt in ipairs(STATUS) do
-        if not st.status[opt.id] then return true end
-    end
-    return next(st.formats) ~= nil
+    if is_restricted(st.status, STATUS_IDS) then return true end
+    return is_restricted(st.formats, Filter.formats())
+end
+
+function Filter.format_label(ext)
+    return string.upper(tostring(ext or ""))
 end
 
 function Filter.label(id)
@@ -205,15 +242,12 @@ local function keeps(book, st)
     if st.device == "pinned" and state ~= "pinned" then return false end
     if st.device == "remote" and state ~= "remote" then return false end
 
-    local all_status = true
-    for _, opt in ipairs(STATUS) do
-        if not st.status[opt.id] then all_status = false break end
-    end
-    if not all_status and not st.status[Books.read_status(book)] then
+    if is_restricted(st.status, STATUS_IDS)
+            and not st.status[Books.read_status(book)] then
         return false
     end
 
-    if next(st.formats) ~= nil then
+    if is_restricted(st.formats, Filter.formats()) then
         local ext = book.file_type and string.lower(book.file_type) or ""
         if not st.formats[ext] then return false end
     end
@@ -342,27 +376,22 @@ function Sheet:_layout(draw, top)
     put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Status")) end)
     for _, opt in ipairs(STATUS) do
         put(opt_h, function(iy)
-            Parts.option(draw, 0, iy, w, opt.text, "check", st.status[opt.id], function()
-                st.status[opt.id] = not st.status[opt.id] or nil
+            Parts.option(draw, 0, iy, w, opt.text, "check", st.status[opt.id] == true, function()
+                toggle_flag(st.status, opt.id, STATUS_IDS)
                 self:rebuild("ui")
             end)
         end)
     end
 
     put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Format")) end)
-    for _, ext in ipairs(Filter.formats()) do
+    local format_keys = Filter.formats()
+    for _, ext in ipairs(format_keys) do
         put(opt_h, function(iy)
-            local on = next(st.formats) == nil or st.formats[ext]
-            Parts.option(draw, 0, iy, w, ext, "check", on, function()
-                if next(st.formats) == nil then
-                    for _, e in ipairs(Filter.formats()) do st.formats[e] = true end
-                end
-                st.formats[ext] = not st.formats[ext] or nil
-                local any = false
-                for _ in pairs(st.formats) do any = true break end
-                if not any then st.formats = {} end
-                self:rebuild("ui")
-            end)
+            Parts.option(draw, 0, iy, w, Filter.format_label(ext), "check",
+                st.formats[ext] == true, function()
+                    toggle_flag(st.formats, ext, format_keys)
+                    self:rebuild("ui")
+                end)
         end)
     end
 
@@ -397,13 +426,11 @@ function Sheet:_layout(draw, top)
     draw:rule(0, foot_top, w, Theme.rule)
     local half = math.floor((w - Theme.pad * 2 - S(8)) / 2)
     Parts.button(draw, Theme.pad, foot_top + Theme.rule + S(10), half, _("Reset"), false, function()
-        self.state = {
-            device = "all",
-            status = default_status(),
-            formats = {},
-            sort_key = "added",
-            sort_dir = "desc",
-        }
+        local reset = defaults()
+        if self.home and self.home.view == "on_device" then
+            reset.device = "downloaded"
+        end
+        self.state = reset
         self:rebuild("ui")
     end, btn_h)
     Parts.button(draw, Theme.pad + half + S(8), foot_top + Theme.rule + S(10), half,

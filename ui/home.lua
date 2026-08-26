@@ -294,26 +294,26 @@ end
 function Home:_build_empty(draw, x, y, w, h)
     local title, body
     if not Settings.can_browse() then
-        title = _("Not connected")
-        body = _("Point Hansel at a Grimmory server in Settings, then come back.")
+        title = _("Not signed in")
+        body = _("Sign in to Grimmory in Settings.")
     elseif self.unavailable then
         local device = Filter.state().device
         if self.error_kind == "auth_required" or self.error_kind == "forbidden" then
             title = _("Sign-in required")
-            body = _("Reconnect your Grimmory account. Your downloaded books are still available.")
+            body = _("Reconnect your Grimmory account.")
         elseif device == "remote" then
             title = _("Server books unavailable")
-            body = _("Server-only books need a connection. Downloaded books remain available.")
-        elseif self.error_kind == "server_error" then
-            title = _("Grimmory unavailable")
-            body = _("The server could not answer. Saved books will reappear as they become available.")
+            body = _("Server-only books need a connection.")
+        elseif self.hide_unavailable_active then
+            title = _("Nothing on this device")
+            body = _("Nothing downloaded or pinned yet.")
         else
-            title = _("Offline")
-            body = _("No saved books match this view yet. Reconnect to update the library.")
+            title = _("Grimmory unreachable")
+            body = _("Can't reach Grimmory right now.")
         end
     elseif Filter.active() then
         title = _("Nothing matches")
-        body = _("No books on this shelf match the current filters. Widen the filters or pick another shelf.")
+        body = _("Widen the filters or pick another shelf.")
     else
         title = _("Nothing here yet")
         body = _("This shelf is empty.")
