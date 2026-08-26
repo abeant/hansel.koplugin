@@ -135,11 +135,12 @@ function Background.pump()
     end)
     local remain = {}
     for _, job in ipairs(queued) do
-        if job.settled or job.stale then
-        elseif inflight_count() < MAX_INFLIGHT then
-            start(job)
-        else
-            remain[#remain + 1] = job
+        if not job.settled and not job.stale then
+            if inflight_count() < MAX_INFLIGHT then
+                start(job)
+            else
+                remain[#remain + 1] = job
+            end
         end
     end
     queued = remain

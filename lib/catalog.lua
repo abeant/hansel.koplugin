@@ -60,7 +60,7 @@ local function open()
                 stored.pages = stored.pages or {}
                 stored.by_id = stored.by_id or {}
                 stored.manifest = stored.manifest or {}
-                migrated = migrate_pages(stored) or migrated
+                migrate_pages(stored)
                 _root.accounts[id] = stored
                 migrated = true
             end

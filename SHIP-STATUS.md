@@ -8,12 +8,14 @@ stop-at: 2026-08-27T05:34:26Z
 - B: Hide unavailable books setting (default ON) in Library settings. Unreachable Grimmory overlays Downloaded ∪ Pinned without persisting the filter; setting off never auto-flips. Banner "Showing books on this device". Drawer Home row "On this device". Session untouched.
 - C: Format chips uppercase; empty status/format = no filter (unchecked, not all-on). Tools → Hansel Dashboard/All Books are radios. Test connection row. Grid density documented. Empty states and one primary detail action.
 - D: README badges (KOReader / AGPL-3.0 / Lua / Grimmory), empty screenshot slots, CHANGELOG, CONTRIBUTING, quiet AI footer. No ChatGPT badge.
+- E: scripts/package.sh builds hansel.koplugin.zip rooted at hansel.koplugin/. CI luacheck + tests + zip check. Draft GitHub release on tag v* only. No nested plugin dir in git.
 
 ## Next
-- E: scripts/package.sh + luacheck/tests CI + draft release on tag v*.
+- F: Review against END STATE, then stop.
 
 ## Log
 - 2026-08-26T21:42:28Z A copied f7355c5 onto root, rebranded user-facing Dork/dork → Hansel/hansel, migration + tests, commit/push
 - 2026-08-26T22:12:26Z B hide-unavailable overlay + On this device drawer, tests pass, commit/push
 - 2026-08-26T22:39:54Z C UI polish: uppercase formats, empty-set trap, Tools radios, Test connection, README settings/menu copy, commit/push
 - 2026-08-26T23:05:51Z D badges, CHANGELOG, CONTRIBUTING, empty screenshot slots, commit/push
+- 2026-08-26T23:40:00Z E package.sh, luacheckrc, CI, draft v* release workflow, luacheck-clean, commit/push

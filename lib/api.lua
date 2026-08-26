@@ -67,11 +67,9 @@ end
 function API.test_connection()
     local origin = Settings.server_url()
     local t1_ok, t1_msg = API.test_tier1(origin, Settings.get("t1_username"), Settings.t1_password())
-    local t2_ok, t2_msg = false, "skipped"
+    local t2_ok, t2_msg = false, "not configured"
     if Settings.has_tier2() then
         t2_ok, t2_msg = API.test_tier2(origin, Settings.get("t2_username"), Settings.t2_password())
-    else
-        t2_msg = "not configured"
     end
     logger.dbg("[hansel] test connection t1=", t1_ok, t1_msg, "t2=", t2_ok, t2_msg)
     return {

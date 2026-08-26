@@ -1,34 +1,13 @@
-local Device = require("device")
 local Font = require("ui/font")
-local logger = require("logger")
 
 local Type = {}
-
-local function plugin_dir()
-    local src = debug.getinfo(1, "S").source or ""
-    src = src:gsub("^@", "")
-    return src:match("^(.*)/ui/type%.lua$")
-end
-
-local ROOT = plugin_dir()
-
-local FILES = {
-    mono = "NectoMono-Regular.otf",
-    text = "OrticaLinear-Regular.otf",
-    light = "OrticaLinear-Light.otf",
-}
 
 local SLOT = {
     title = "tfont",
     body = "smallinfofont",
     small = "smallinfofont",
-        tiny = "smallinfofont",
+    tiny = "smallinfofont",
 }
-
-local function file_for(kind)
-    if not ROOT then return nil end
-    return ROOT .. "/fonts/" .. FILES[kind]
-end
 
 local function slot_name(role)
     if role == nil or role == "body" then return SLOT.body end

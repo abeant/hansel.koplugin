@@ -171,7 +171,7 @@ function Library.fetch_feed(url, page, size, opts)
                 error_kind = ok and nil or error_kind(status),
             }
         else
-            ok, status, body, _, response = API.rest_get(path)
+            ok, _, body, _, response = API.rest_get(path)
         end
         if not ok then
             logger.warn("[hansel] rest feed failed", response and response.error_kind or "unknown",

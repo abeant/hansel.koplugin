@@ -10,6 +10,13 @@ Hansel is a KOReader plugin (Lua 5.1 / LuaJIT). The plugin files are at the repo
 
 Needs `luajit` or `lua` on `PATH`. The suite uses stubs in `tests/kostub.lua` and does not talk to Grimmory.
 
+```sh
+luacheck --no-self _meta.lua main.lua lib ui
+./scripts/package.sh
+```
+
+`package.sh` writes `hansel.koplugin.zip` with a top-level `hansel.koplugin/` folder. Do not commit that zip or a nested plugin directory.
+
 ## Pull requests
 
 - Match the surrounding Lua: short comments, no unused placeholders.

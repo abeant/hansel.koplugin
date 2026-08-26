@@ -471,7 +471,7 @@ function CacheMap.rebuild_from_disk(dir)
     if not dir or lfs.attributes(dir, "mode") ~= "directory" then return end
     for name in lfs.dir(dir) do
         if name ~= "." and name ~= ".." then
-            local id, ext = name:match("^(%d+)%.(%w+)$")
+            local id = name:match("^(%d+)%.%w+$")
             if id then
                 local path = dir .. "/" .. name
                 local e = entry(id)

@@ -222,7 +222,8 @@ function Hansel:show()
         return
     end
     local Home = require("ui.home")
-    local widget = Home:new{
+    local widget
+    widget = Home:new{
         plugin = self,
         _on_close = function()
             if _live == widget then _live = nil end

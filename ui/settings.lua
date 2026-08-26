@@ -138,7 +138,7 @@ function Panel:build(draw)
             end)
         end,
     })
-    y = y + Parts.row(draw, 0, y, w, _("On this device"), {
+    Parts.row(draw, 0, y, w, _("On this device"), {
         icon = "tray",
         value = T(_("%1 books"), downloaded_count()),
         chevron = true,
