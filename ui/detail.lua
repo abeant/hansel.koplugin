@@ -190,22 +190,24 @@ function Detail:build(draw)
     draw:fill(0, acts_y, w, h - acts_y, Theme.paper)
     draw:rule(0, acts_y, w, Theme.rule)
     local gap = S(8)
-    local avail = w - Theme.pad * 2 - gap
-    local pin_w = math.floor(avail / 3)
-    local read_w = avail - pin_w
-    Parts.button(draw, Theme.pad, acts_y + Theme.rule + S(10), read_w,
-        state == "remote" and _("Download & read") or _("Read"), true, function()
-            self:onRead()
-        end, act_btn_h)
-    local side_label, side_fn
+    local avail = w - Theme.pad * 2
     if state == "remote" then
-        side_label, side_fn = _("Download"), function() self:onDownload() end
+        Parts.button(draw, Theme.pad, acts_y + Theme.rule + S(10), avail,
+            _("Download"), true, function()
+                self:onDownload()
+            end, act_btn_h)
     else
-        side_label = state == "pinned" and _("Unpin") or _("Pin")
-        side_fn = function() self:toggle_pin() end
+        local pin_w = math.floor((avail - gap) / 3)
+        local read_w = avail - gap - pin_w
+        Parts.button(draw, Theme.pad, acts_y + Theme.rule + S(10), read_w,
+            _("Read"), true, function()
+                self:onRead()
+            end, act_btn_h)
+        Parts.button(draw, Theme.pad + read_w + gap, acts_y + Theme.rule + S(10), pin_w,
+            state == "pinned" and _("Unpin") or _("Pin"), false, function()
+                self:toggle_pin()
+            end, act_btn_h)
     end
-    Parts.button(draw, Theme.pad + read_w + gap, acts_y + Theme.rule + S(10), pin_w,
-        side_label, false, side_fn, act_btn_h)
 end
 
 function Detail:open_facet(name)

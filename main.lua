@@ -178,6 +178,7 @@ function Hansel:addToMainMenu(menu_items)
                 },
                 {
                     text = _("Dashboard"),
+                    radio = true,
                     checked_func = function()
                         return _live and _live.view == "dashboard"
                     end,
@@ -188,8 +189,9 @@ function Hansel:addToMainMenu(menu_items)
                 },
                 {
                     text = _("All Books"),
+                    radio = true,
                     checked_func = function()
-                        return _live and _live.view == "all"
+                        return _live and (_live.view == "all" or not _live.view)
                     end,
                     callback = function()
                         self:show()
