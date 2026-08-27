@@ -163,7 +163,7 @@ function Home:build(draw)
                 end,
             },
             {
-                icon = "menu",
+                icon = "search",
                 callback = function()
                     local ok, SearchUI = pcall(require, "ui.search")
                     if ok and SearchUI and SearchUI.show then

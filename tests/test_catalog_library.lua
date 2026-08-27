@@ -152,6 +152,11 @@ eq(second_page.books[2].title, "Delta", "sort precedes pagination (second)")
 eq(second_page.total, 5, "unified total retained across pages")
 
 local recovered_page = Library.query(all_state, 9, 20)
+local formats = Catalog.format_counts()
+ok((formats.epub or 0) >= 1, "format_counts epub")
+eq(formats.pdf, 1, "format_counts pdf")
+ok(formats.cbz == nil, "format_counts must not invent CBZ")
+
 eq(recovered_page.page, 1, "offline restart clamps a stale page number")
 eq(#recovered_page.books, 5, "stale offline page still shows saved books")
 

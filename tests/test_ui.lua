@@ -217,10 +217,19 @@ paint(sheet, "filter sheet")
 ok(sheet.panel and sheet.panel.y > 0, "filter sheet is not anchored to the bottom")
 ok(sheet.panel.y + sheet.panel.h == env.Screen.getHeight(), "filter sheet misses the bottom edge")
 local sheet_text = collected_text(sheet)
-ok(sheet_text["EPUB"] and sheet_text["PDF"] and sheet_text["CBZ"],
+ok(sheet_text["EPUB"] and sheet_text["PDF"],
     "filter format labels are not uppercase")
-ok(not sheet_text["epub"] and not sheet_text["pdf"] and not sheet_text["cbz"],
+ok(not sheet_text["CBZ"], "filter listed CBZ though no book has it")
+ok(not sheet_text["epub"] and not sheet_text["pdf"],
     "filter format labels still show lowercase")
+local sort_ids = {}
+for i = 1, #Filter.sorts() do
+    local opt = Filter.sorts()[i]
+    sort_ids[opt.id] = opt.text
+end
+ok(sort_ids.size == "File size", "missing File size sort")
+ok(sort_ids.published == "Published", "missing Published sort")
+ok(sort_ids.opened == "Last opened", "missing Last opened sort")
 ok(sheet.state.formats and next(sheet.state.formats) == nil,
     "no format filter should start empty, not all-on")
 ok(sheet.state.status and next(sheet.state.status) == nil,
@@ -301,6 +310,25 @@ ok(Filter.active({
     sort_key = "added", sort_dir = "desc",
 }), "partial status is active")
 ok(Filter.format_label("epub") == "EPUB", "format_label uppercases")
+local listed = Filter.formats()
+local listed_set = {}
+for i = 1, #listed do listed_set[listed[i]] = true end
+ok(listed_set.epub and listed_set.pdf, "formats() missed types in the fixture")
+ok(not listed_set.cbz, "formats() seeded CBZ that is not in the library")
+
+local by_size = Filter.apply(BOOKS, {
+    device = "all", status = {}, formats = {}, sort_key = "size", sort_dir = "desc",
+})
+ok(#by_size == #BOOKS, "size sort dropped books")
+for i = 2, #by_size do
+    ok((tonumber(by_size[i - 1].file_size) or 0) >= (tonumber(by_size[i].file_size) or 0),
+        "file sizes out of order")
+end
+local by_published = Filter.apply({
+    { id = "a", title = "A", published_date = "2010-01-01", state = "remote" },
+    { id = "b", title = "B", published_date = "2020-01-01", state = "remote" },
+}, { device = "all", status = {}, formats = {}, sort_key = "published", sort_dir = "desc" })
+ok(by_published[1].id == "b" and by_published[2].id == "a", "published sort is not newest-first")
 
 -- ---------- detail ----------
 
@@ -435,7 +463,27 @@ UIManager:drain()
 Settings.clear_t2()
 
 -- Search / download screens: only if those modules exist.
-for _, name in ipairs({ "ui.search", "ui.downloads", "ui.download" }) do
+local SearchUI = require("ui.search")
+UIManager.stack = {}
+SearchUI.show(home)
+ok(UIManager.stack[#UIManager.stack] ~= nil, "search dialog did not open")
+UIManager:close(UIManager.stack[#UIManager.stack])
+UIManager.stack = {}
+SearchUI.show_results(home, "dune", "books", {
+    { kind = "book", title = "Dune", why = "Title", book = BOOKS[2] },
+})
+local search_results = UIManager.stack[#UIManager.stack]
+ok(search_results ~= nil, "search results did not open")
+ok(search_results._draw ~= nil, "search results layout crashed")
+paint(search_results, "search results")
+local search_text = collected_text(search_results)
+ok(search_text["Dune"], "search results missing hit title")
+ok(search_text["Search books"], "search results missing books title")
+check_targets(search_results, "search results")
+UIManager:close(search_results)
+UIManager:drain()
+
+for _, name in ipairs({ "ui.downloads", "ui.download" }) do
     local found = io.open((name:gsub("%.", "/")) .. ".lua", "r")
     if found then
         found:close()
@@ -463,7 +511,7 @@ end
 local Icon = require("ui.icon")
 local names = { "menu", "filter", "grid", "left", "right", "up", "down", "close", "check",
                 "dot", "pin", "more", "book", "layers", "person", "home", "star", "tray",
-                "spark", "gear", "hash", "folder", "tag", "sliders" }
+                "spark", "gear", "hash", "folder", "tag", "sliders", "search" }
 for _, name in ipairs(names) do
     ok(Icon.has(name), "missing icon " .. name)
     local before = env.bb.calls

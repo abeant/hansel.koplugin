@@ -17,10 +17,13 @@ First Hansel release. Plugin files live at the repo root.
 ### Fixed
 
 - Settings → On this device crashed layout when any book was downloaded (`_` shadowed gettext), leaving a blank overlay that ate taps.
+- Filter format list is the formats actually in the library (no seeded PDF/CBZ).
+- Search is the previous Books/Authors/Tags/Categories dialog plus results sheet, with a search icon.
 
 ### Changed
 
-- Format filter labels are uppercase (`EPUB`, `PDF`, `CBZ`). Empty status or format is no filter and renders unchecked.
+- Format filter labels are uppercase. Empty status or format is no filter and renders unchecked.
+- Sort by file size, published date, or last opened.
 - Tools → Hansel: Dashboard and All Books are radios, not fake toggles.
 
 ### Migration

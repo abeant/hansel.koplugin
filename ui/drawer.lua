@@ -80,7 +80,7 @@ function Drawer:_rows()
             action = function() if home then home:set_view("dashboard") end end,
         },
         {
-            icon = "filter", label = _("Search"),
+            icon = "search", label = _("Search"),
             on = view == "search",
             action = function()
                 local ok, Search = pcall(require, "ui.search")
