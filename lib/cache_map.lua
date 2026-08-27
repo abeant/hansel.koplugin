@@ -308,22 +308,41 @@ function CacheMap.rebuild_by_hash()
     if not next(wanted) then return end
     local home = Paths.home_dir()
     if not home then return end
+    local files = {}
     for name in lfs.dir(home) do
         if name ~= "." and name ~= ".." and not name:match("%.sdr$") then
             local path = home .. "/" .. name
-            if is_file(path) then
-                local h = file_hash(path)
-                local id = h and wanted[h]
-                if id then
-                    local e = entry(id)
-                    e.path = path
-                    e.owned = false
-                    e.bytes = file_size(path)
-                end
-            end
+            if is_file(path) then files[#files + 1] = path end
         end
     end
-    CacheMap.flush()
+    local i = 0
+    local ok_ui, UIManager = pcall(require, "ui/uimanager")
+    local function step()
+        i = i + 1
+        if i > #files then
+            CacheMap.flush()
+            return
+        end
+        local path = files[i]
+        local h = file_hash(path)
+        local id = h and wanted[h]
+        if id then
+            local e = entry(id)
+            e.path = path
+            e.owned = false
+            e.bytes = file_size(path)
+        end
+        if ok_ui and UIManager and UIManager.nextTick then
+            UIManager:nextTick(step)
+        else
+            step()
+        end
+    end
+    if ok_ui and UIManager and UIManager.nextTick then
+        UIManager:nextTick(step)
+    else
+        step()
+    end
 end
 
 function CacheMap.remove(id, delete_file)

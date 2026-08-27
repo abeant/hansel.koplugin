@@ -108,6 +108,20 @@ function Search.corpus()
     if ok_c and Catalog.all_books then add(Catalog.all_books()) end
     local ok_m, CacheMap = pcall(require, "lib.cache_map")
     if ok_m and CacheMap.local_books then add(CacheMap.local_books()) end
+    local down = false
+    local ok_l, Library = pcall(require, "lib.library")
+    if ok_l and Library.is_unreachable then down = Library.is_unreachable() end
+    local ok_f, Filter = pcall(require, "ui.filter")
+    if ok_f and Filter.effective then
+        local applied, hid = Filter.effective(nil, down)
+        if hid and Filter.apply then
+            local ok_b, Books = pcall(require, "lib.books")
+            if ok_b and Books.hydrate_list then
+                out = Books.hydrate_list(out, { disk = false })
+            end
+            return Filter.apply(out, applied)
+        end
+    end
     return out
 end
 

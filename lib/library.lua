@@ -265,19 +265,22 @@ function Library.fetch_feed(url, page, size, opts)
 end
 
 local function library_unreachable()
-    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_n and NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
-        return true, "offline"
-    end
     local ok_s, Session = pcall(require, "lib.session")
     if ok_s and Session and Session.status then
         local kind = Session.status().kind
-        if kind == "offline" or kind == "server_error"
-                or kind == "auth_required" or kind == "forbidden" then
+        if kind == "offline" or kind == "server_error" then
             return true, kind
         end
     end
     return false
+end
+
+function Library.is_unreachable()
+    return library_unreachable()
+end
+
+function Library.feed_key(url)
+    return feed_cache_key(url)
 end
 
 function Library.page(view, page, size)
@@ -497,7 +500,6 @@ function Library.download(book)
             pcall(os.remove, staged)
             CacheMap.record_seen(book.id, dest)
             Catalog.upsert_book({ id = book.id, local_path = dest, file_type = ext })
-            Catalog.flush()
             snap = nil
             return true, dest
         end
@@ -517,7 +519,6 @@ function Library.download(book)
     end
     CacheMap.record_download(book.id, dest, bytes, { owned = true, hash = new_hash })
     Catalog.upsert_book({ id = book.id, local_path = dest, file_type = ext, file_size = bytes })
-    Catalog.flush()
     snap = nil
     return true, dest
 end

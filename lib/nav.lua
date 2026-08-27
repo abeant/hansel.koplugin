@@ -239,8 +239,28 @@ local CATALOG_FIELD = {
 local function harvest_from_catalog(kind)
     local field = CATALOG_FIELD[kind]
     if not field or not Catalog.all_books then return nil end
+    local overlay = false
+    local ok_l, Library = pcall(require, "lib.library")
+    local ok_f, Filter = pcall(require, "ui.filter")
+    if ok_l and Library.is_unreachable and ok_f and Filter.effective then
+        local down = Library.is_unreachable()
+        local _, hid = Filter.effective(nil, down)
+        overlay = hid and true or false
+    end
+    local CacheMap
+    if overlay then
+        local ok_c, cm = pcall(require, "lib.cache_map")
+        if ok_c then CacheMap = cm end
+    end
     local counts = {}
     for _, book in ipairs(Catalog.all_books()) do
+        if overlay and CacheMap and CacheMap.get then
+            local e = CacheMap.get(book.id)
+            if not (e and e.path) then
+                book = nil
+            end
+        end
+        if book then
         local values = book[field]
         if type(values) == "string" then values = { values } end
         for _, row in ipairs(type(values) == "table" and values or {}) do
@@ -251,6 +271,7 @@ local function harvest_from_catalog(kind)
                 rec.count = rec.count + 1
                 counts[name] = rec
             end
+        end
         end
     end
     local items = {}
@@ -266,10 +287,11 @@ local function harvest_from_catalog(kind)
     return { items = items }
 end
 
-function Nav.fetch(kind)
+function Nav.fetch(kind, opts)
+    opts = opts or {}
     ensure_cache_identity()
     local cached = _cache[kind]
-    if cached and cached.items and #cached.items > 0
+    if not opts.force_rest and cached and cached.items and #cached.items > 0
             and _fetched_at > 0 and (os.time() - _fetched_at) < NAV_TTL then
         return cached
     end
@@ -285,10 +307,17 @@ function Nav.fetch(kind)
                 return from_rest
             end
         elseif FACET_MATCH[kind] then
-            local from_rest = filter_options_list(kind) or facet_list(kind)
+            local from_rest = filter_options_list(kind)
             if from_rest then
                 _cache[kind] = from_rest
                 return from_rest
+            end
+            if not opts.rest_only or _filter_payload == false then
+                from_rest = facet_list(kind)
+                if from_rest then
+                    _cache[kind] = from_rest
+                    return from_rest
+                end
             end
         end
     end
@@ -296,7 +325,7 @@ function Nav.fetch(kind)
     local paths = type(spec) == "table" and spec or { spec }
     local origin = Settings.server_url()
     local user, password = creds()
-    if spec and Settings.has_tier1() and can_probe() then
+    if spec and Settings.has_tier1() and can_probe() and not opts.rest_only then
         for i = 1, #paths do
             local path = paths[i]
             local url = Origin.opds_nav(origin, path)
@@ -332,6 +361,7 @@ function Nav.harvest()
         local saved = harvest_from_catalog(kind)
         if saved then _cache[kind] = saved end
     end
+    _fetched_at = os.time()
 end
 
 local REST_ORDER = { "categories", "tags", "series", "authors", "shelves", "magic" }
@@ -342,7 +372,7 @@ function Nav.step_rest()
     _rest_index = _rest_index + 1
     local kind = REST_ORDER[_rest_index]
     if not kind then return false end
-    Nav.fetch(kind)
+    Nav.fetch(kind, { rest_only = true, force_rest = true })
     return _rest_index < #REST_ORDER
 end
 
