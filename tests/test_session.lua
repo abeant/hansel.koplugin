@@ -162,4 +162,13 @@ ok(not Session.should_probe() or Session.status().kind == "connected",
     "unknown/offline never probes")
 NetworkMgr.online = false
 
+Session.reset()
+eq(Session.status().kind, "unknown", "reset returns to unknown")
+refresh_reply = { false, 0, "network down" }
+login_reply = { false, 0, "network down" }
+NetworkMgr.online = true
+eq(Session.try_unknown_token(), nil, "unknown refresh can fail")
+eq(Session.status().kind, "unknown", "failed unknown refresh does not set offline")
+NetworkMgr.online = false
+
 print("session: " .. checks .. " ok")

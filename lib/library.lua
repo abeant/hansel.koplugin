@@ -155,9 +155,7 @@ function Library.fetch_feed(url, page, size, opts)
     if not opts.bearer_token and not opts.force then
         local ok_s, Session = pcall(require, "lib.session")
         if ok_s and Session and Session.should_probe and not Session.should_probe() then
-            return cached_failure(cache_key, page, size, {
-                error_kind = "offline", status = 0,
-            })
+            return Library.page(cache_key, page, size)
         end
     end
     if url:find("/books/page", 1, true) or url:find("facet=", 1, true) then

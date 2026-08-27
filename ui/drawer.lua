@@ -275,17 +275,20 @@ function Drawer:onTapOutside(ges)
 end
 
 function Drawer.show(home)
+    Nav.harvest()
     local drawer = Drawer:new{ home = home }
     UIManager:show(drawer)
-    -- Do not Trapper:wrap. That inhibits input for the whole Nav.refresh,
-    -- which used to sit on Grimmory HTTP until Android posted Close/Wait.
-    UIManager:nextTick(function()
+    Nav.refresh()
+    local function more()
         if drawer._closed then return end
-        Nav.refresh()
-        if not drawer._closed then
+        if Nav.step_rest() and not drawer._closed then
+            drawer:rebuild("ui")
+            UIManager:scheduleIn(0.05, more)
+        elseif not drawer._closed then
             drawer:rebuild("ui")
         end
-    end)
+    end
+    UIManager:scheduleIn(0.05, more)
 end
 
 return Drawer

@@ -32,6 +32,7 @@ local _cache_identity
 local _fetched_at = 0
 local _filter_payload
 local _facet_payload
+local _rest_index = 0
 local NAV_TTL = 120
 local NAV_BLOCK = 2
 local NAV_TOTAL = 3
@@ -55,6 +56,7 @@ local function ensure_cache_identity()
         _fetched_at = 0
         _filter_payload = nil
         _facet_payload = nil
+        _rest_index = 0
         local all = Settings.get("nav_places")
         local stored = type(all) == "table" and all[identity]
         _places = type(stored) == "table" and stored or {}
@@ -157,7 +159,6 @@ local function facet_list(kind)
     local payload = _facet_payload
     if payload == nil then
         if not can_probe() then
-            _facet_payload = false
             return nil
         end
         local ok, _, body = rest_get("/api/v1/books/facets")
@@ -191,7 +192,6 @@ local function filter_options_list(kind)
     local payload = _filter_payload
     if payload == nil then
         if not can_probe() then
-            _filter_payload = false
             return nil
         end
         local ok, _, body = rest_get("/api/v1/app/filter-options")
@@ -326,24 +326,30 @@ function Nav.href(name, kind)
     return facet_href(kind or "categories", name)
 end
 
-function Nav.refresh()
+function Nav.harvest()
     ensure_cache_identity()
-    if _fetched_at > 0 and (os.time() - _fetched_at) < NAV_TTL then
-        return
-    end
     for kind in pairs(FACET_MATCH) do
         local saved = harvest_from_catalog(kind)
         if saved then _cache[kind] = saved end
     end
-    if not can_probe() then
-        return
-    end
-    local seen = {}
-    for kind in pairs(KINDS) do Nav.fetch(kind) seen[kind] = true end
-    for kind in pairs(FACET_MATCH) do
-        if not seen[kind] then Nav.fetch(kind) end
-    end
-    _fetched_at = os.time()
+end
+
+local REST_ORDER = { "categories", "tags", "series", "authors", "shelves", "magic" }
+
+function Nav.step_rest()
+    ensure_cache_identity()
+    if not can_probe() then return false end
+    _rest_index = _rest_index + 1
+    local kind = REST_ORDER[_rest_index]
+    if not kind then return false end
+    Nav.fetch(kind)
+    return _rest_index < #REST_ORDER
+end
+
+function Nav.refresh()
+    ensure_cache_identity()
+    Nav.harvest()
+    _rest_index = 0
 end
 
 function Nav.place_key(kind, id)

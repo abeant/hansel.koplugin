@@ -76,7 +76,12 @@ package.loaded["lib.cache_map"] = {
     local_books = function() return local_rows end,
     local_path = function(id) return local_ids[tostring(id)] and ("/books/" .. id .. ".epub") end,
     state = function(id) return local_ids[tostring(id)] and "cached" or "remote" end,
-    get = function() return nil end,
+    get = function(id)
+        if local_ids[tostring(id)] then
+            return { path = "/books/" .. id .. ".epub", pinned = false }
+        end
+        return nil
+    end,
     revision = function() return cache_rev end,
 }
 package.loaded["lib.books"] = nil

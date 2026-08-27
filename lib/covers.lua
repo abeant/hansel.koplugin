@@ -7,12 +7,11 @@ local lfs = require("libs/libkoreader-lfs")
 
 local Covers = {}
 
-local MAX_IN_FLIGHT = 3
-local _in_flight = 0
 local _queue = {}
 local _token = 0
 local _busy = false
 local _on_done = nil
+local _hits = {}
 
 function Covers.scope()
     local identity = Settings.account_key()
@@ -35,8 +34,11 @@ function Covers.path(book_id)
 end
 
 function Covers.cached(book_id)
+    local id = tostring(book_id or "")
+    if _hits[id] then return _hits[id] end
     local path = Covers.path(book_id)
     if lfs.attributes(path, "mode") == "file" then
+        _hits[id] = path
         return path
     end
     -- Adopt a pre-v0.2 unscoped cover into the account active during upgrade.
@@ -109,20 +111,31 @@ function Covers.fetch_one(book, cred)
     }
     local ok
     if Settings.has_tier2() and Origin.same_origin(Settings.server_url(), url) then
-        ok = require("lib.session").with_bearer(function(token)
-            request_opts.user, request_opts.password = nil, nil
-            request_opts.headers = { Authorization = "Bearer " .. token }
-            return Http.download_file(url, dest, request_opts)
-        end)
+        local Session = require("lib.session")
+        local bearer = Session.peek_token and Session.peek_token()
+        if not bearer then return nil end
+        request_opts.user, request_opts.password = nil, nil
+        request_opts.headers = { Authorization = "Bearer " .. bearer }
+        ok = Http.download_file(url, dest, request_opts)
     else
         ok = Http.download_file(url, dest, request_opts)
     end
     if ok then
+        _hits[tostring(book.id)] = dest
         return dest
     end
     pcall(os.remove, dest)
     pcall(os.remove, dest .. ".part")
     return nil
+end
+
+local function can_fetch_covers()
+    if not Settings.has_tier2() then return true end
+    local ok, Session = pcall(require, "lib.session")
+    if not ok or not Session then return false end
+    if Session.peek_token and Session.peek_token() then return true end
+    if Session.should_probe and Session.should_probe() then return true end
+    return false
 end
 
 local function pump(on_done)
@@ -132,28 +145,25 @@ local function pump(on_done)
     local function step()
         if token ~= _token then
             _busy = false
-            _in_flight = 0
             return
         end
-        while _in_flight < MAX_IN_FLIGHT and #_queue > 0 do
-            local book = table.remove(_queue, 1)
-            if book and not Covers.cached(book.id) then
-                _in_flight = _in_flight + 1
-                local path = Covers.fetch_one(book)
-                _in_flight = _in_flight - 1
-                if path and on_done then
-                    on_done(book.id, path)
-                end
-            end
-        end
-        if token ~= _token then
+        if not can_fetch_covers() then
             _busy = false
-            _in_flight = 0
             return
         end
-        if #_queue > 0 then
-            UIManager:scheduleIn(0.05, step)
-            return
+        local book = table.remove(_queue, 1)
+        while book and Covers.cached(book.id) do
+            book = table.remove(_queue, 1)
+        end
+        if book then
+            local path = Covers.fetch_one(book)
+            if path and on_done then
+                on_done(book.id, path)
+            end
+            if token == _token and #_queue > 0 then
+                UIManager:scheduleIn(0.05, step)
+                return
+            end
         end
         _busy = false
     end
@@ -173,7 +183,6 @@ function Covers.fetch_visible(books, on_done)
     _queue = {}
     _on_done = on_done
     enqueue(books)
-    _in_flight = 0
     _busy = false
     pump(_on_done)
 end
@@ -188,7 +197,6 @@ end
 function Covers.cancel()
     _token = _token + 1
     _queue = {}
-    _in_flight = 0
     _busy = false
     _on_done = nil
 end

@@ -22,6 +22,7 @@ First Hansel release. Plugin files live at the repo root.
 - Drawer/home no longer block the Lua thread on Grimmory HTTP (Android Close/Wait ANR). Offline cooldown skips probes for 20s.
 - Boot paints from the on-disk catalog: no per-book disk stats, no startup HTTP, no hash-scan of Home.
 - Skipping a Grimmory probe is not treated as “server down” (that hid the whole library). After first paint, sync Grimmory in the background.
+- Light hydrate never stats disk. Cover pump and drawer REST do one HTTP per tick. Search hay uses CacheMap.get, not local_path.
 
 ### Changed
 
