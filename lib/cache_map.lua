@@ -9,6 +9,8 @@ local _file
 local _root
 local _data
 local _identity
+local _rev = 0
+local _on_device_ids
 
 local function current_identity()
     local ok, Settings = pcall(require, "lib.settings")
@@ -134,8 +136,15 @@ end
 
 function CacheMap.flush()
     open()
+    _rev = _rev + 1
+    _on_device_ids = nil
     _file:saveSetting("cache", _root)
     _file:flush()
+end
+
+function CacheMap.revision()
+    open()
+    return _rev
 end
 
 local function entry(id)
@@ -156,7 +165,14 @@ function CacheMap.local_path(id)
     if e and e.path and is_file(e.path) then
         return e.path
     end
-    if e and e.path and not is_file(e.path) then
+    local found = recover_path(id)
+    if found then
+        e = entry(id)
+        e.path = found
+        CacheMap.flush()
+        return found
+    end
+    if e and e.path then
         e.path = nil
         CacheMap.flush()
     end
@@ -357,38 +373,24 @@ function CacheMap.owned_cached()
     return list
 end
 
-local _on_device_ids
-local _on_device_at = 0
-
 function CacheMap.on_device_ids()
     open()
-    if _on_device_ids and (os.time() - _on_device_at) < 2 then
-        return _on_device_ids
-    end
+    if _on_device_ids then return _on_device_ids end
     local ids = {}
     for id, e in pairs(_data.books) do
-        local path = (e.path and is_file(e.path)) and e.path or recover_path(id)
-        if path then
-            if e.path ~= path then
-                e.path = path
-                CacheMap.flush()
-            end
-            ids[#ids + 1] = id
-        end
+        if e.path then ids[#ids + 1] = id end
     end
     _on_device_ids = ids
-    _on_device_at = os.time()
     return ids
 end
 
 function CacheMap.local_books()
     local Catalog = require("lib.catalog")
     local books = {}
-    local changed = false
     for _, id in ipairs(CacheMap.on_device_ids()) do
+        local e = CacheMap.get(id)
         local book = Catalog.get_book(id)
         if not book then
-            local e = CacheMap.get(id)
             local path = e and e.path
             local name = path and path:match("([^/]+)$") or ("Book " .. id)
             book = {
@@ -397,12 +399,11 @@ function CacheMap.local_books()
                 file_type = path and path:match("%.([%w]+)$") or "epub",
                 file_size = e and e.bytes,
             }
-            Catalog.upsert_book(book)
-            changed = true
         end
+        book.local_path = e and e.path
+        book.state = (e and e.pinned) and "pinned" or "cached"
         books[#books + 1] = book
     end
-    if changed then Catalog.flush() end
     return books
 end
 

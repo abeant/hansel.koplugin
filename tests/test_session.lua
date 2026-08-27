@@ -158,6 +158,8 @@ eq(down.error_kind, "offline", "transport classified offline for cooldown")
 local NetworkMgr = require("ui/network/manager")
 NetworkMgr.online = true
 ok(not Session.should_probe(), "should_probe is false during offline cooldown")
+ok(not Session.should_probe() or Session.status().kind == "connected",
+    "unknown/offline never probes")
 NetworkMgr.online = false
 
 print("session: " .. checks .. " ok")

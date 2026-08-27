@@ -133,11 +133,10 @@ function Session.should_probe()
         return false
     end
     if state.kind == "offline" or state.kind == "server_error" then
-        if (now() - (state.checked_at or 0)) < PROBE_COOLDOWN then
-            return false
-        end
+        return (now() - (state.checked_at or 0)) >= PROBE_COOLDOWN
     end
-    return true
+    -- unknown/checking/auth: never stall a tap or boot to find out.
+    return state.kind == "connected"
 end
 
 function Session.peek_token()

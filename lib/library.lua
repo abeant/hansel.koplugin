@@ -267,21 +267,9 @@ end
 
 function Library.page(view, page, size)
     local cached = Catalog.get_page(view, page, size)
-    local online = false
-    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_n and NetworkMgr and NetworkMgr.isOnline then
-        online = NetworkMgr:isOnline()
-    end
-    local probe = true
-    local ok_s, Session = pcall(require, "lib.session")
-    if ok_s and Session and Session.should_probe then
-        probe = Session.should_probe()
-    end
-    if online and Settings.can_browse() and probe then
-        return Library.fetch_page(view, page, size) or cached
-    end
+    -- Never HTTP here. Boot/taps serve the catalog; Manifest.ensure refreshes.
     if cached then
-        cached.books = Books.hydrate_list(cached.books)
+        cached.books = Books.hydrate_list(cached.books, { disk = false })
         cached.unavailable = Settings.can_browse()
         cached.error_kind = cached.unavailable and "offline" or nil
         cached.status = 0
@@ -349,12 +337,13 @@ local function unified_snapshot(base_books)
         return snap
     end
     local local_books = CacheMap.local_books()
-    local known = Books.hydrate_list(merge_books(Catalog.all_books(), base_books, local_books))
+    local known = Books.hydrate_list(
+        merge_books(Catalog.all_books(), base_books, local_books), { disk = false })
     snap = {
         crev = crev,
         krev = krev,
         known = known,
-        local_books = Books.hydrate_list(local_books),
+        local_books = Books.hydrate_list(local_books, { disk = false }),
         counts = derived_counts(known),
     }
     return snap
@@ -388,6 +377,7 @@ function Library.query(state, page, size, force_network)
     local last = math.min(#filtered, first + size - 1)
     local books = {}
     for index = first, last do books[#books + 1] = filtered[index] end
+    books = Books.hydrate_list(books)
 
     if not Filter.active(state) and not base.unavailable
             and tonumber(base.total) and base.total > total then
