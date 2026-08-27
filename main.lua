@@ -55,9 +55,6 @@ function Hansel:init()
             end
             CacheMap.rebuild_by_hash()
         end)
-        if Settings.get("auto_sync_enabled") then
-            ProgressSync.on_network_connected()
-        end
     end)
 
     self:_registerStartWithMenu()
@@ -276,6 +273,9 @@ function Hansel:onSuspend()
 end
 
 function Hansel:onNetworkConnected()
+    if _live and _live._sync_grimmory then
+        _live:_sync_grimmory()
+    end
     ProgressSync.on_network_connected()
 end
 

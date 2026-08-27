@@ -9,6 +9,7 @@ local _root
 local _data
 local _identity
 local _dirty
+local _flush_queued
 
 local function current_identity()
     local ok, Settings = pcall(require, "lib.settings")
@@ -98,8 +99,24 @@ function Catalog.flush()
     _dirty = false
 end
 
+function Catalog.schedule_flush()
+    if not _dirty or _flush_queued then return end
+    _flush_queued = true
+    local ok, UIManager = pcall(require, "ui/uimanager")
+    if ok and UIManager and UIManager.nextTick then
+        UIManager:nextTick(function()
+            _flush_queued = false
+            Catalog.flush()
+        end)
+        return
+    end
+    _flush_queued = false
+    Catalog.flush()
+end
+
 local function mark_dirty()
     _dirty = true
+    Catalog.schedule_flush()
 end
 
 local function page_key(view, page, size)
@@ -126,7 +143,6 @@ function Catalog.put_page(view, page, size, books, total)
     }
     logger.dbg("[hansel] catalog page store", view or "all", page, size, #ids)
     mark_dirty()
-    Catalog.flush()
 end
 
 local function books_for(rec)
@@ -230,7 +246,6 @@ function Catalog.set_manifest(total, fetched)
     _data.manifest.count = Catalog.book_count()
     _data.manifest.fetched_at = fetched or os.time()
     mark_dirty()
-    Catalog.flush()
 end
 
 function Catalog.put_books(books)

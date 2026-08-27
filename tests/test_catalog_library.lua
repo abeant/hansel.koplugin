@@ -58,6 +58,7 @@ Catalog.put_page("all", 1, 20, {
     { id = "1", title = "Zulu", file_type = "epub" },
     { id = "2", title = "Delta", file_type = "pdf" },
 }, 2)
+Catalog.flush()
 package.loaded["lib.catalog"] = nil
 Catalog = require("lib.catalog")
 local reopened = Catalog.get_page("all", 1, 20)
@@ -112,6 +113,8 @@ local remote_state = {
 }
 
 env.NetworkMgr.online = false
+local Session = require("lib.session")
+Session.mark_offline()
 eq(Settings.hide_unavailable(), true, "hide unavailable defaults on")
 local hidden = Library.query(all_state, 1, 20)
 eq(#hidden.books, 4, "hide unavailable drops remote catalog books")
@@ -138,6 +141,12 @@ local hidden_remote = Library.query(remote_state, 1, 20)
 eq(#hidden_remote.books, 4, "hide unavailable overlays Server only onto on-device books")
 eq(remote_state.device, "remote", "Server only filter is not rewritten")
 
+Session.reset()
+env.NetworkMgr.online = false
+Settings.set("hide_unavailable", true)
+local wifi_off = Library.query(all_state, 1, 20)
+eq(#wifi_off.books, 5, "wifi-off is not Grimmory-down overlay")
+ok(not wifi_off.hide_unavailable_active, "NetworkMgr down does not hide the catalog")
 env.NetworkMgr.online = true
 Settings.set("hide_unavailable", true)
 local live = Library.query(all_state, 1, 20)
@@ -155,7 +164,7 @@ end
 local remote = Library.query(remote_state, 1, 20)
 eq(#remote.books, 1, "Server only excludes an already-downloaded duplicate")
 eq(remote.books[1].id, "1", "remote-only record retained")
-ok(remote.unavailable, "Server only knows server result is unavailable")
+ok(not remote.unavailable, "Session unknown is not Grimmory-down")
 
 -- Sorting/filtering happens over the unified snapshot before it is sliced.
 local second_page = Library.query(all_state, 2, 2)
@@ -163,6 +172,7 @@ eq(second_page.books[1].title, "Charlie", "sort precedes pagination (first)")
 eq(second_page.books[2].title, "Delta", "sort precedes pagination (second)")
 eq(second_page.total, 5, "unified total retained across pages")
 
+Session.mark_offline()
 local recovered_page = Library.query(all_state, 9, 20)
 local formats = Catalog.format_counts()
 ok((formats.epub or 0) >= 1, "format_counts epub")

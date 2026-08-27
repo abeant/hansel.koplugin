@@ -547,7 +547,6 @@ function ProgressSync.on_suspend()
     if periodic_task then UIManager:unschedule(periodic_task) periodic_task = nil end
     current.page_count = 0
     enqueue_current()
-    if online() then ProgressSync.drain() end
 end
 
 function ProgressSync.on_close_document()
@@ -555,7 +554,6 @@ function ProgressSync.on_close_document()
     generation = generation + 1
     if periodic_task then UIManager:unschedule(periodic_task) periodic_task = nil end
     current = nil
-    if online() then ProgressSync.drain() end
 end
 
 function ProgressSync.on_network_connected()

@@ -354,6 +354,8 @@ function Home:set_view(view)
     self.view_title = VIEW_TITLE[view]
     self.feed_url = nil
     self.nav_items = nil
+    self._nav_fetched = nil
+    self._feed_fetched = nil
     self.page = 1
     self.trail = { { title = VIEW_TITLE[view] or view, view = view } }
     Settings.set("last_view", view)
@@ -373,6 +375,7 @@ function Home:open_feed(url, title, from_book)
     self.feed_url = url
     self.view_title = title
     self.nav_items = nil
+    self._feed_fetched = nil
     self.page = 1
     self:reload()
 end
@@ -434,38 +437,49 @@ function Home:_sync_grimmory()
         return
     end
     self._syncing = true
+    local function alive()
+        return not self._closed
+    end
     UIManager:scheduleIn(0.2, function()
-        if self._closed then
-            self._syncing = false
-            return
-        end
+        if not alive() then self._syncing = false return end
         if type(Library.fetch_page) ~= "function" then
             self._syncing = false
             return
         end
         local Session = require("lib.session")
-        local token = Session.peek_token and Session.peek_token()
-        if not token and not self._unknown_refresh and Session.try_unknown_token then
-            self._unknown_refresh = true
-            pcall(function()
-                token = Session.try_unknown_token()
+        local token
+        if Settings.has_tier2() then
+            token = Session.peek_token and Session.peek_token()
+            if not token and not self._unknown_refresh and Session.try_unknown_token then
+                self._unknown_refresh = true
+                pcall(function()
+                    token = Session.try_unknown_token()
+                end)
+            end
+            if not token then
+                logger.info("[hansel] Grimmory sync skipped",
+                    Session.status and Session.status().kind)
+                self._syncing = false
+                return
+            end
+        end
+        UIManager:nextTick(function()
+            if not alive() then self._syncing = false return end
+            local result = Library.fetch_page("all", self.page or 1, Settings.page_size())
+            logger.info("[hansel] Grimmory sync",
+                result and result.source or "none",
+                result and result.total or 0)
+            UIManager:nextTick(function()
+                pcall(function() require("lib.catalog").flush() end)
+                UIManager:nextTick(function()
+                    self._syncing = false
+                    if not alive() then return end
+                    if result and result.source == "network" then
+                        self:reload(false)
+                    end
+                end)
             end)
-        end
-        if not token then
-            logger.info("[hansel] Grimmory sync skipped",
-                Session.status and Session.status().kind)
-            self._syncing = false
-            return
-        end
-        local result = Library.fetch_page("all", self.page or 1, Settings.page_size())
-        logger.info("[hansel] Grimmory sync",
-            result and result.source or "none",
-            result and result.total or 0)
-        self._syncing = false
-        if self._closed then return end
-        if result and result.source == "network" then
-            self:reload(false)
-        end
+        end)
     end)
 end
 
@@ -489,13 +503,43 @@ function Home:reload(force_network)
             st = Filter.on_device(st)
         end
         if self.feed_url then
-            result = Library.fetch_feed(self.feed_url, self.page, size)
+            local key = Library.feed_key and Library.feed_key(self.feed_url) or self.feed_url
+            result = Library.page(key, self.page, size)
+            if force_network and Library.fetch_feed then
+                result = Library.fetch_feed(self.feed_url, self.page, size) or result
+            elseif not force_network and self._feed_fetched ~= self.feed_url then
+                local url = self.feed_url
+                self._feed_fetched = url
+                UIManager:nextTick(function()
+                    if self._closed or self.feed_url ~= url then return end
+                    if Library.fetch_feed then
+                        local net = Library.fetch_feed(url, self.page, size)
+                        if net and net.source == "network" then
+                            self:reload(false)
+                        end
+                    end
+                end)
+            end
         elseif self.view == "categories" or self.view == "tags"
                 or self.view == "series" or self.view == "authors" then
             local Nav = require("lib.nav")
-            local nav = Nav.fetch(self.view)
+            Nav.harvest()
+            local nav = Nav.get(self.view)
             self.nav_items = nav.items or {}
             result = { books = {}, total = #self.nav_items, offline = false }
+            if force_network then
+                nav = Nav.fetch(self.view)
+                self.nav_items = nav.items or {}
+                result.total = #self.nav_items
+            elseif not self._nav_fetched then
+                local kind = self.view
+                self._nav_fetched = true
+                UIManager:nextTick(function()
+                    if self._closed or self.view ~= kind then return end
+                    Nav.fetch(kind, { rest_only = true, force_rest = true })
+                    if not self._closed then self:reload(false) end
+                end)
+            end
         elseif self.view == "dashboard" then
             result = self:_dashboard(size)
         else
@@ -513,14 +557,18 @@ function Home:reload(force_network)
             self.books = Filter.apply(hydrated, applied)
         end
         self.total = result.total or #self.books
-        if self.view == "all" and not self.feed_url and not Filter.active() then
+        local hid = result.hide_unavailable_active
+        if hid == nil then
+            hid = (result.unavailable and Settings.hide_unavailable()) and true or false
+        end
+        if self.view == "all" and not self.feed_url and not Filter.active()
+                and not hid and not result.unavailable then
             if tonumber(self.total) and self.total > 0 then
-                if not result.unavailable or not self.library_total or self.library_total == 0 then
-                    self.library_total = self.total
-                    Settings.set_library_total(self.library_total)
-                end
+                self.library_total = self.total
+                Settings.set_library_total(self.library_total)
             end
-        elseif (not self.library_total or self.library_total == 0) and Settings.can_browse() then
+        elseif (not self.library_total or self.library_total == 0) and Settings.can_browse()
+                and not hid then
             local peek = Library.page("all", 1, Settings.page_size())
             local n = peek and tonumber(peek.total)
             if n and n > 0 then
@@ -533,7 +581,7 @@ function Home:reload(force_network)
         end
         self.offline = result.offline and true or false
         self.unavailable = result.unavailable and true or false
-        self.hide_unavailable_active = (result.unavailable and Settings.hide_unavailable()) and true or false
+        self.hide_unavailable_active = hid and true or false
         self.error_kind = result.error_kind
         self.source = result.source
         self.counts = result.counts
@@ -550,11 +598,16 @@ function Home:reload(force_network)
     end
     -- Trapper inhibits input. Don't wrap a cached catalog reload - that is
     -- what made tapping a Home row look like a freeze.
-    if force_network or not (Catalog.book_count and Catalog.book_count() > 0) then
+    if force_network then
         Trapper:wrap(work)
     else
         work()
     end
+end
+
+function Home:onClose()
+    pcall(function() require("lib.catalog").flush() end)
+    return require("ui.base").onClose(self)
 end
 
 function Home:_kick_covers()
