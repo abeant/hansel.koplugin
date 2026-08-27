@@ -123,6 +123,23 @@ function Session.status()
     }
 end
 
+-- After Grimmory fails, do not keep probing. Each probe is 8–15s on the
+-- Lua thread and that is the Android ANR (close/wait) on this device.
+local PROBE_COOLDOWN = 20
+
+function Session.should_probe()
+    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
+    if ok_n and NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
+        return false
+    end
+    if state.kind == "offline" or state.kind == "server_error" then
+        if (now() - (state.checked_at or 0)) < PROBE_COOLDOWN then
+            return false
+        end
+    end
+    return true
+end
+
 function Session.peek_token()
     local want = identity(Settings.server_url(), Settings.get("t2_username"))
     if access_token and access_identity == want
@@ -225,8 +242,8 @@ function Session.request(method, path, opts)
         headers.Authorization = "Bearer " .. bearer
         return Http.json(method or "GET", origin .. path, opts.body, {
             headers = headers,
-            timeout_block = opts.timeout_block or 8,
-            timeout_total = opts.timeout_total or 15,
+            timeout_block = opts.timeout_block or 4,
+            timeout_total = opts.timeout_total or 8,
         })
     end
 

@@ -19,6 +19,7 @@ First Hansel release. Plugin files live at the repo root.
 - Settings → On this device crashed layout when any book was downloaded (`_` shadowed gettext), leaving a blank overlay that ate taps.
 - Filter format list is the formats actually in the library (no seeded PDF/CBZ).
 - Search is the previous Books/Authors/Tags/Categories dialog plus results sheet, with a search icon.
+- Drawer/home no longer block the Lua thread on Grimmory HTTP (Android Close/Wait ANR). Offline cooldown skips probes for 20s.
 
 ### Changed
 

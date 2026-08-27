@@ -149,4 +149,15 @@ local changed = Session.login(Settings.server_url(), "reader", "old-secret")
 eq(changed.error_kind, "auth_required", "changed password requires sign-in")
 eq(Session.status().kind, "auth_required", "sign-in state is truthful")
 
+-- After a transport failure, do not keep probing (each probe is an ANR).
+Session.adopt({ accessToken = "still-valid", refreshToken = "refresh-1", expires = 3600 },
+    Settings.server_url(), "reader")
+request_replies = { { false, 0, "network down" } }
+local down = Session.request("GET", "/api/v1/books/page")
+eq(down.error_kind, "offline", "transport classified offline for cooldown")
+local NetworkMgr = require("ui/network/manager")
+NetworkMgr.online = true
+ok(not Session.should_probe(), "should_probe is false during offline cooldown")
+NetworkMgr.online = false
+
 print("session: " .. checks .. " ok")

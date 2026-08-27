@@ -435,8 +435,11 @@ function Home:reload(force_network)
             return
         end
     end
-    Trapper:wrap(function()
-        Trapper:info(_("Loading library…"))
+    local function work()
+        local have_local = Catalog.book_count and Catalog.book_count() > 0
+        if not have_local then
+            Trapper:info(_("Loading library…"))
+        end
         local size = Settings.page_size()
         local result
         local st = Filter.state()
@@ -501,7 +504,14 @@ function Home:reload(force_network)
             self:_kick_covers()
             pcall(function() require("lib.manifest").ensure() end)
         end)
-    end)
+    end
+    -- Trapper inhibits input. Don't wrap a cached catalog reload — that is
+    -- what made tapping a Home row look like a freeze.
+    if force_network or not (Catalog.book_count and Catalog.book_count() > 0) then
+        Trapper:wrap(work)
+    else
+        work()
+    end
 end
 
 function Home:_kick_covers()

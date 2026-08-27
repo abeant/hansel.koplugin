@@ -357,8 +357,14 @@ function CacheMap.owned_cached()
     return list
 end
 
+local _on_device_ids
+local _on_device_at = 0
+
 function CacheMap.on_device_ids()
     open()
+    if _on_device_ids and (os.time() - _on_device_at) < 2 then
+        return _on_device_ids
+    end
     local ids = {}
     for id, e in pairs(_data.books) do
         local path = (e.path and is_file(e.path)) and e.path or recover_path(id)
@@ -370,6 +376,8 @@ function CacheMap.on_device_ids()
             ids[#ids + 1] = id
         end
     end
+    _on_device_ids = ids
+    _on_device_at = os.time()
     return ids
 end
 

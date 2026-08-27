@@ -29,6 +29,12 @@ local FACET_MATCH = {
 local _cache = {}
 local _places = {}
 local _cache_identity
+local _fetched_at = 0
+local _filter_payload
+local _facet_payload
+local NAV_TTL = 120
+local NAV_BLOCK = 2
+local NAV_TOTAL = 3
 
 local function account_identity()
     return Settings.account_key and Settings.account_key() or tostring(Settings.server_url())
@@ -46,10 +52,25 @@ local function ensure_cache_identity()
     if _cache_identity ~= identity then
         _cache_identity = identity
         _cache = {}
+        _fetched_at = 0
+        _filter_payload = nil
+        _facet_payload = nil
         local all = Settings.get("nav_places")
         local stored = type(all) == "table" and all[identity]
         _places = type(stored) == "table" and stored or {}
     end
+end
+
+local function can_probe()
+    local ok, Session = pcall(require, "lib.session")
+    if ok and Session and Session.should_probe then
+        return Session.should_probe()
+    end
+    return true
+end
+
+local function rest_get(path)
+    return API.rest_get(path, { timeout_block = NAV_BLOCK, timeout_total = NAV_TOTAL })
 end
 
 local function creds()
@@ -109,7 +130,8 @@ local function items_from_facet_group(group, kind)
 end
 
 local function magic_list()
-    local ok, _, body = API.rest_get("/api/magic-shelves")
+    if not can_probe() then return nil end
+    local ok, _, body = rest_get("/api/magic-shelves")
     if not ok then return nil end
     local rows = decode_json(body)
     if type(rows) ~= "table" then return nil end
@@ -131,9 +153,17 @@ local function facet_list(kind)
     if not needles then return nil end
     local origin = Settings.server_url()
     if not origin then return nil end
-    local ok, _, body = API.rest_get("/api/v1/books/facets")
-    if not ok then return nil end
-    local payload = decode_json(body)
+    if _facet_payload == false then return nil end
+    local payload = _facet_payload
+    if payload == nil then
+        if not can_probe() then
+            _facet_payload = false
+            return nil
+        end
+        local ok, _, body = rest_get("/api/v1/books/facets")
+        payload = ok and decode_json(body) or nil
+        _facet_payload = payload or false
+    end
     if type(payload) ~= "table" or type(payload.facets) ~= "table" then return nil end
     local picked
     for _, group in ipairs(payload.facets) do
@@ -157,9 +187,17 @@ end
 local function filter_options_list(kind)
     local origin = Settings.server_url()
     if not origin then return nil end
-    local ok, _, body = API.rest_get("/api/v1/app/filter-options")
-    if not ok then return nil end
-    local payload = decode_json(body)
+    if _filter_payload == false then return nil end
+    local payload = _filter_payload
+    if payload == nil then
+        if not can_probe() then
+            _filter_payload = false
+            return nil
+        end
+        local ok, _, body = rest_get("/api/v1/app/filter-options")
+        payload = ok and decode_json(body) or nil
+        _filter_payload = payload or false
+    end
     if type(payload) ~= "table" then return nil end
     local rows = payload[kind] or payload[kind:gsub("s$", "")]
     if kind == "genres" then rows = payload.genres end
@@ -230,33 +268,44 @@ end
 
 function Nav.fetch(kind)
     ensure_cache_identity()
-    if kind == "magic" and Settings.has_tier2() then
-        local from_rest = magic_list()
-        if from_rest then
-            _cache[kind] = from_rest
-            return from_rest
-        end
+    local cached = _cache[kind]
+    if cached and cached.items and #cached.items > 0
+            and _fetched_at > 0 and (os.time() - _fetched_at) < NAV_TTL then
+        return cached
     end
-    if FACET_MATCH[kind] and Settings.has_tier2() then
-        local from_rest = filter_options_list(kind) or facet_list(kind)
-        if from_rest then
-            _cache[kind] = from_rest
-            return from_rest
+    local saved = FACET_MATCH[kind] and harvest_from_catalog(kind)
+    if saved then
+        _cache[kind] = saved
+    end
+    if Settings.has_tier2() and can_probe() then
+        if kind == "magic" then
+            local from_rest = magic_list()
+            if from_rest then
+                _cache[kind] = from_rest
+                return from_rest
+            end
+        elseif FACET_MATCH[kind] then
+            local from_rest = filter_options_list(kind) or facet_list(kind)
+            if from_rest then
+                _cache[kind] = from_rest
+                return from_rest
+            end
         end
     end
     local spec = KINDS[kind]
     local paths = type(spec) == "table" and spec or { spec }
     local origin = Settings.server_url()
     local user, password = creds()
-    if spec and Settings.has_tier1() then
-        for _, path in ipairs(paths) do
+    if spec and Settings.has_tier1() and can_probe() then
+        for i = 1, #paths do
+            local path = paths[i]
             local url = Origin.opds_nav(origin, path)
             if url then
                 local ok, code, body = Http.get(url, {
                     user = user,
                     password = password,
-                    timeout_block = 8,
-                    timeout_total = 15,
+                    timeout_block = NAV_BLOCK,
+                    timeout_total = NAV_TOTAL,
                 })
                 if ok then
                     local parsed = OPDS.parse_nav(body, url)
@@ -270,11 +319,6 @@ function Nav.fetch(kind)
             end
         end
     end
-    local saved = FACET_MATCH[kind] and harvest_from_catalog(kind)
-    if saved then
-        _cache[kind] = saved
-        return saved
-    end
     return _cache[kind] or { items = {} }
 end
 
@@ -284,9 +328,22 @@ end
 
 function Nav.refresh()
     ensure_cache_identity()
+    if _fetched_at > 0 and (os.time() - _fetched_at) < NAV_TTL then
+        return
+    end
+    for kind in pairs(FACET_MATCH) do
+        local saved = harvest_from_catalog(kind)
+        if saved then _cache[kind] = saved end
+    end
+    if not can_probe() then
+        return
+    end
     local seen = {}
     for kind in pairs(KINDS) do Nav.fetch(kind) seen[kind] = true end
-    for kind in pairs(FACET_MATCH) do if not seen[kind] then Nav.fetch(kind) end end
+    for kind in pairs(FACET_MATCH) do
+        if not seen[kind] then Nav.fetch(kind) end
+    end
+    _fetched_at = os.time()
 end
 
 function Nav.place_key(kind, id)
