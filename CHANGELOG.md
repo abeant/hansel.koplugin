@@ -21,6 +21,7 @@ First Hansel release. Plugin files live at the repo root.
 - Search is the previous Books/Authors/Tags/Categories dialog plus results sheet, with a search icon.
 - Drawer/home no longer block the Lua thread on Grimmory HTTP (Android Close/Wait ANR). Offline cooldown skips probes for 20s.
 - Boot paints from the on-disk catalog: no per-book disk stats, no startup HTTP, no hash-scan of Home.
+- Skipping a Grimmory probe is not treated as “server down” (that hid the whole library). After first paint, sync Grimmory in the background.
 
 ### Changed
 
