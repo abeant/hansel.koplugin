@@ -370,11 +370,29 @@ UIManager:drain()
 UIManager.stack = {}
 local cache_mod = package.loaded["lib.cache_map"]
 local prev_load = cache_mod.load
-cache_mod.load = function() return { books = {} } end
+cache_mod.load = function()
+    return {
+        books = {
+            ["1"] = { path = "/tmp/pinned.epub", pinned = true, bytes = 1111 },
+            ["2"] = { path = "/tmp/loose.epub", pinned = false, bytes = 2222 },
+        },
+    }
+end
 require("ui.device_storage").show()
 local storage = UIManager.stack[#UIManager.stack]
 ok(storage ~= nil, "device storage did not open")
+ok(storage._draw ~= nil, "device storage layout crashed (nil draw list)")
 paint(storage, "device storage")
+local storage_text = collected_text(storage)
+ok(storage_text["pinned.epub"] or storage_text["loose.epub"],
+    "device storage did not list downloaded books")
+local joined = table.concat((function()
+    local keys = {}
+    for k in pairs(storage_text) do keys[#keys + 1] = k end
+    return keys
+end)(), "\n")
+ok(joined:find("pinned", 1, true) and joined:find("unpinned", 1, true),
+    "device storage missing pinned/unpinned labels: " .. joined)
 cache_mod.load = prev_load
 check_targets(storage, "device storage")
 UIManager:close(storage)

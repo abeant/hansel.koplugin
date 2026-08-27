@@ -171,11 +171,17 @@ function Panel:build(draw)
 
     if #snap.rows > 0 then
         y = y + Parts.menu_separator(draw, 0, y, w)
-        for _, row in ipairs(snap.rows) do
+        -- Do not use `_` as the loop index: it shadows gettext and the first
+        -- downloaded book used to crash layout (blank fullscreen tap-eater).
+        local pinned_l = _("pinned")
+        local unpinned_l = _("unpinned")
+        local row_fmt = _("%1 · %2")
+        for i = 1, #snap.rows do
+            local row = snap.rows[i]
             if y + Theme.icon > h then break end
-            local suffix = row.pinned and _("pinned") or _("unpinned")
+            local suffix = row.pinned and pinned_l or unpinned_l
             y = y + Parts.row(draw, 0, y, w, row.title, {
-                value = T(_("%1 · %2"), Fmt.bytes(row.bytes), suffix),
+                value = T(row_fmt, Fmt.bytes(row.bytes), suffix),
             })
         end
     end

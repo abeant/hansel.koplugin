@@ -14,6 +14,10 @@ First Hansel release. Plugin files live at the repo root.
 - Test connection from Settings.
 - Comfortable / Compact / Dense grid (3×3 / 4×4 / 5×4).
 
+### Fixed
+
+- Settings → On this device crashed layout when any book was downloaded (`_` shadowed gettext), leaving a blank overlay that ate taps.
+
 ### Changed
 
 - Format filter labels are uppercase (`EPUB`, `PDF`, `CBZ`). Empty status or format is no filter and renders unchecked.
