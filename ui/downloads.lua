@@ -28,9 +28,11 @@ function Panel:build(draw)
         Parts.row(draw, 0, y, w, _("Nothing queued"))
         return
     end
-    for _, item in ipairs(items) do
+    local untitled = _("Untitled")
+    for i = 1, #items do
+        local item = items[i]
         local book = item.book or {}
-        y = y + Parts.row(draw, 0, y, w, book.title or _("Untitled"), {
+        y = y + Parts.row(draw, 0, y, w, book.title or untitled, {
             value = item.status or "",
             callback = item.status == "failed" and function()
                 Center.retry(book.id)

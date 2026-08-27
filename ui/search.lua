@@ -34,8 +34,11 @@ function Panel:build(draw)
     y = y + Parts.row(draw, 0, y, w, q ~= "" and q or _("Tap to search"), {
         callback = function() self:ask() end,
     })
-    for _, book in ipairs(self.hits or {}) do
-        y = y + Parts.row(draw, 0, y, w, book.title or _("Untitled"), {
+    local untitled = _("Untitled")
+    local hits = self.hits or {}
+    for i = 1, #hits do
+        local book = hits[i]
+        y = y + Parts.row(draw, 0, y, w, book.title or untitled, {
             value = type(book.authors) == "table" and table.concat(book.authors, ", ") or tostring(book.authors or ""),
             callback = function()
                 local home = self.home

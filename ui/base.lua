@@ -104,7 +104,13 @@ function Base:paintTo(bb, x, y)
 end
 
 function Base:onTap(_, ges)
-    local hit = self._draw and self._draw:hit(ges and ges.pos)
+    -- First-paint failure leaves `_draw` nil. Swallowing taps here is what
+    -- made a layout crash look like a freeze on E-Ink.
+    if not self._draw then
+        self:onClose()
+        return true
+    end
+    local hit = self._draw:hit(ges and ges.pos)
     if not hit then
         self:onTapOutside(ges)
         return true
