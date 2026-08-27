@@ -7,6 +7,7 @@ local Device = require("device")
 local Geom = require("ui/geometry")
 local UIManager = require("ui/uimanager")
 local Trapper = require("ui/trapper")
+local logger = require("logger")
 local _ = require("gettext")
 local T = require("ffi/util").template
 
@@ -58,11 +59,9 @@ function Home:setup()
     self.hide_unavailable_active = false
     self.error_kind = nil
     self._tile_rects = {}
-    UIManager:nextTick(function()
-        if not self._closed then
-            self:reload()
-        end
-    end)
+    local t0 = os.clock()
+    self:reload()
+    logger.info("[hansel] first grid", math.floor((os.clock() - t0) * 1000), "ms")
 end
 
 function Home:_nav_row_h()
@@ -502,7 +501,8 @@ function Home:reload(force_network)
             if self._closed then return end
             self:rebuild("full")
             self:_kick_covers()
-            pcall(function() require("lib.manifest").ensure() end)
+            -- Don't refresh the catalog on this tick. peek_token is empty
+            -- until a later ensure_token, and that HTTP is the boot ANR.
         end)
     end
     -- Trapper inhibits input. Don't wrap a cached catalog reload - that is

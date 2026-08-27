@@ -44,7 +44,8 @@ function Hansel:init()
     Migrate.all()
     Paths.ensure_data_dirs()
     Settings.load()
-    UIManager:nextTick(function()
+    -- Housekeeping hashes the library dir. Do it well after first paint.
+    UIManager:scheduleIn(15, function()
         pcall(function()
             local _, moved = Paths.migrate_into_library()
             if type(moved) == "table" then

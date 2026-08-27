@@ -65,7 +65,7 @@ function Books.author_line(book)
     return tostring(a or "")
 end
 
-function Books.hydrate(book)
+function Books.hydrate(book, opts)
     if not book or not book.id then return book end
     book.id = tostring(book.id)
     local cached = Catalog.get_book(book.id)
@@ -74,16 +74,30 @@ function Books.hydrate(book)
             if book[k] == nil then book[k] = v end
         end
     end
+    -- Snapshot/filter path: trust the cache map. Stat the disk only for the
+    -- visible page - 700 lfs.attributes calls is the 5–10s boot hang.
+    if opts and opts.disk == false then
+        if not book.state then
+            local e = CacheMap.get(book.id)
+            if e and e.path then
+                book.local_path = e.path
+                book.state = e.pinned and "pinned" or "cached"
+            else
+                book.state = CacheMap.state(book.id)
+            end
+        end
+        return book
+    end
     local path = CacheMap.local_path(book.id)
     book.local_path = path
     book.state = CacheMap.state(book.id)
     return book
 end
 
-function Books.hydrate_list(list)
+function Books.hydrate_list(list, opts)
     local out = {}
-    for _, book in ipairs(list or {}) do
-        out[#out + 1] = Books.hydrate(book)
+    for i = 1, #(list or {}) do
+        out[i] = Books.hydrate(list[i], opts)
     end
     return out
 end
