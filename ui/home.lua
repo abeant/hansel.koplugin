@@ -62,6 +62,7 @@ function Home:setup()
     local t0 = os.clock()
     self:reload()
     logger.info("[hansel] first grid", math.floor((os.clock() - t0) * 1000), "ms")
+    self:_sync_grimmory()
 end
 
 function Home:_nav_row_h()
@@ -424,6 +425,45 @@ function Home:set_density(key)
     self.page = 1
     Settings.set("last_page", 1)
     self:reload()
+end
+
+function Home:_sync_grimmory()
+    if self._syncing or not Settings.can_browse() then return end
+    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
+    if ok_n and NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
+        return
+    end
+    self._syncing = true
+    UIManager:scheduleIn(0.2, function()
+        if self._closed then
+            self._syncing = false
+            return
+        end
+        if type(Library.fetch_page) ~= "function" then
+            self._syncing = false
+            return
+        end
+        local Session = require("lib.session")
+        local token
+        pcall(function()
+            token = Session.ensure_token(false)
+        end)
+        if not token then
+            logger.info("[hansel] Grimmory sync skipped", Session.status().kind)
+            self._syncing = false
+            if not self._closed then self:reload(false) end
+            return
+        end
+        local result = Library.fetch_page("all", self.page or 1, Settings.page_size())
+        logger.info("[hansel] Grimmory sync",
+            result and result.source or "none",
+            result and result.total or 0)
+        self._syncing = false
+        if self._closed then return end
+        self:reload(false)
+        pcall(function() require("lib.nav").refresh() end)
+        pcall(function() require("lib.manifest").ensure() end)
+    end)
 end
 
 function Home:reload(force_network)

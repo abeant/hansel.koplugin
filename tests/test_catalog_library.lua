@@ -133,6 +133,13 @@ local hidden_remote = Library.query(remote_state, 1, 20)
 eq(#hidden_remote.books, 4, "hide unavailable overlays Server only onto on-device books")
 eq(remote_state.device, "remote", "Server only filter is not rewritten")
 
+env.NetworkMgr.online = true
+Settings.set("hide_unavailable", true)
+local live = Library.query(all_state, 1, 20)
+eq(#live.books, 5, "wifi up does not fake Grimmory-down overlay")
+ok(not live.hide_unavailable_active, "skipped HTTP is not unavailable")
+env.NetworkMgr.online = false
+
 Settings.set("hide_unavailable", false)
 local downloaded = Library.query(downloaded_state, 1, 20)
 eq(#downloaded.books, 4, "Downloaded remains local-only offline")

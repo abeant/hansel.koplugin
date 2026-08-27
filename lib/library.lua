@@ -38,6 +38,7 @@ function Library.fetch_page(view, page, size)
     if Settings.has_tier2() then
         return Library.fetch_feed(origin .. "/api/v1/books/page", page, size, {
             cache_key = view,
+            force = true,
         })
     end
     local url = Origin.opds_catalog(origin, page, size)
@@ -265,21 +266,41 @@ function Library.fetch_feed(url, page, size, opts)
     }
 end
 
+local function library_unreachable()
+    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
+    if ok_n and NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
+        return true, "offline"
+    end
+    local ok_s, Session = pcall(require, "lib.session")
+    if ok_s and Session and Session.status then
+        local kind = Session.status().kind
+        if kind == "offline" or kind == "server_error"
+                or kind == "auth_required" or kind == "forbidden" then
+            return true, kind
+        end
+    end
+    return false
+end
+
 function Library.page(view, page, size)
     local cached = Catalog.get_page(view, page, size)
-    -- Never HTTP here. Boot/taps serve the catalog; Manifest.ensure refreshes.
+    -- Never HTTP here. Unavailable only if we already know Grimmory is down —
+    -- skipping a probe is not the same as the server being unreachable.
+    local down, kind = library_unreachable()
     if cached then
         cached.books = Books.hydrate_list(cached.books, { disk = false })
-        cached.unavailable = Settings.can_browse()
-        cached.error_kind = cached.unavailable and "offline" or nil
+        cached.unavailable = down
+        cached.offline = down and kind == "offline" or false
+        cached.error_kind = down and kind or nil
         cached.status = 0
         cached.source = "cache"
         return cached
     end
     return {
         books = {}, total = 0, page = page or 1, size = size or Settings.page_size(),
-        offline = true, unavailable = Settings.can_browse(),
-        error_kind = Settings.can_browse() and "offline" or nil,
+        offline = down and kind == "offline" or true,
+        unavailable = down,
+        error_kind = down and kind or nil,
         source = "none",
     }
 end
