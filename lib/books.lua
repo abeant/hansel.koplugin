@@ -83,7 +83,7 @@ function Books.hydrate(book, opts)
                 book.local_path = e.path
                 book.state = e.pinned and "pinned" or "cached"
             else
-                book.state = CacheMap.state(book.id)
+                book.state = "remote"
             end
         end
         return book

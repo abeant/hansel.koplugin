@@ -148,6 +148,23 @@ function Session.peek_token()
     return nil
 end
 
+--- One boot-time login/refresh. Failure restores prior state so hide-unavailable
+--- does not treat "no JWT in memory yet" as Grimmory-down.
+function Session.try_unknown_token()
+    local existing = Session.peek_token()
+    if existing then return existing end
+    if state.kind ~= "unknown" then return nil end
+    local prev = {
+        kind = state.kind,
+        checked_at = state.checked_at,
+        status = state.status,
+    }
+    local token = Session.ensure_token(false)
+    if token then return token end
+    state = prev
+    return nil
+end
+
 function Session.mark_offline()
     set_state("offline", 0)
 end

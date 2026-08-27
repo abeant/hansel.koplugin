@@ -20,5 +20,6 @@ fi
 "$LUA" tests/test_progress_sync.lua
 "$LUA" tests/test_background.lua
 "$LUA" tests/test_search.lua
+"$LUA" tests/test_boot_io.lua
 "$LUA" tests/test_ui.lua
 echo "all tests passed"

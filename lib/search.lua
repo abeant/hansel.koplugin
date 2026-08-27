@@ -81,7 +81,10 @@ local function hay(book)
     local path = book.local_path
     if not path and book.id then
         local ok, CacheMap = pcall(require, "lib.cache_map")
-        if ok and CacheMap.local_path then path = CacheMap.local_path(book.id) end
+        if ok and CacheMap.get then
+            local e = CacheMap.get(book.id)
+            path = e and e.path
+        end
     end
     if path then parts[#parts + 1] = path end
     return table.concat(parts, " "):lower()

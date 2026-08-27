@@ -444,14 +444,17 @@ function Home:_sync_grimmory()
             return
         end
         local Session = require("lib.session")
-        local token
-        pcall(function()
-            token = Session.ensure_token(false)
-        end)
+        local token = Session.peek_token and Session.peek_token()
+        if not token and not self._unknown_refresh and Session.try_unknown_token then
+            self._unknown_refresh = true
+            pcall(function()
+                token = Session.try_unknown_token()
+            end)
+        end
         if not token then
-            logger.info("[hansel] Grimmory sync skipped", Session.status().kind)
+            logger.info("[hansel] Grimmory sync skipped",
+                Session.status and Session.status().kind)
             self._syncing = false
-            if not self._closed then self:reload(false) end
             return
         end
         local result = Library.fetch_page("all", self.page or 1, Settings.page_size())
@@ -460,9 +463,9 @@ function Home:_sync_grimmory()
             result and result.total or 0)
         self._syncing = false
         if self._closed then return end
-        self:reload(false)
-        pcall(function() require("lib.nav").refresh() end)
-        pcall(function() require("lib.manifest").ensure() end)
+        if result and result.source == "network" then
+            self:reload(false)
+        end
     end)
 end
 
@@ -500,7 +503,7 @@ function Home:reload(force_network)
         end
         result = result or { books = {}, total = 0, offline = true }
         if result.page then self.page = result.page end
-        local hydrated = Books.hydrate_list(result.books or {})
+        local hydrated = result.books or {}
         Filter.note_formats(hydrated)
         local applied = Filter.effective(st, result.unavailable)
         local grid_view = (self.view == "all" or self.view == "on_device") and not self.feed_url
@@ -606,6 +609,7 @@ function Home:_dashboard(size)
         local book = Catalog.get_book(id)
         if book then books[#books + 1] = book end
     end
+    books = Books.hydrate_list(books, { disk = false })
     return {
         books = books,
         total = #books,
