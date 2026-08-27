@@ -38,15 +38,18 @@ local STATUS = {
 }
 
 local SORTS = {
-    { id = "title",  text = _("Title"),           default_dir = "asc" },
-    { id = "author", text = _("Author"),          default_dir = "asc" },
-    { id = "added",  text = _("Date added"),      default_dir = "desc" },
-    { id = "series", text = _("Series position"), default_dir = "asc" },
-    { id = "rating", text = _("Rating"),          default_dir = "desc" },
+    { id = "title",     text = _("Title"),           default_dir = "asc" },
+    { id = "author",    text = _("Author"),          default_dir = "asc" },
+    { id = "added",     text = _("Date added"),      default_dir = "desc" },
+    { id = "published", text = _("Published"),       default_dir = "desc" },
+    { id = "series",    text = _("Series position"), default_dir = "asc" },
+    { id = "rating",    text = _("Rating"),          default_dir = "desc" },
+    { id = "size",      text = _("File size"),       default_dir = "desc" },
+    { id = "opened",    text = _("Last opened"),     default_dir = "desc" },
 }
 
--- Formats seen in the catalog so far, so the sheet lists what you actually own.
-local _seen_formats = { epub = true, pdf = true, cbz = true }
+-- Formats actually present in the library. Never seed with PDF/CBZ/etc.
+local _seen_formats = {}
 
 local STATUS_IDS = { "unread", "reading", "finished" }
 
@@ -124,10 +127,19 @@ end
 
 local function normalize_formats(formats)
     if type(formats) ~= "table" or next(formats) == nil then return {} end
-    local seen = {}
-    for ext in pairs(_seen_formats) do seen[#seen + 1] = ext end
-    if #seen > 0 and all_selected(formats, seen) then return {} end
-    return copy(formats)
+    local known = Filter.formats()
+    local out = {}
+    if #known > 0 then
+        local allow = {}
+        for i = 1, #known do allow[known[i]] = true end
+        for ext, on in pairs(formats) do
+            if on and allow[ext] then out[ext] = true end
+        end
+    else
+        out = copy(formats)
+    end
+    if #known > 0 and all_selected(out, known) then return {} end
+    return out
 end
 
 local function normalize(raw)
@@ -219,8 +231,8 @@ function Filter.label(id)
 end
 
 function Filter.note_formats(books)
-    for _, book in ipairs(books or {}) do
-        local ext = book.file_type
+    for i = 1, #(books or {}) do
+        local ext = books[i].file_type
         if type(ext) == "string" and ext ~= "" then
             _seen_formats[string.lower(ext)] = true
         end
@@ -228,10 +240,34 @@ function Filter.note_formats(books)
 end
 
 function Filter.formats()
+    local seen = {}
+    for ext in pairs(_seen_formats) do seen[ext] = true end
+    local ok, Catalog = pcall(require, "lib.catalog")
+    if ok and Catalog then
+        if Catalog.format_counts then
+            for ext in pairs(Catalog.format_counts() or {}) do
+                if type(ext) == "string" and ext ~= "" then
+                    seen[string.lower(ext)] = true
+                end
+            end
+        elseif Catalog.all_books then
+            local books = Catalog.all_books() or {}
+            for i = 1, #books do
+                local ext = books[i].file_type
+                if type(ext) == "string" and ext ~= "" then
+                    seen[string.lower(ext)] = true
+                end
+            end
+        end
+    end
     local list = {}
-    for ext in pairs(_seen_formats) do list[#list + 1] = ext end
+    for ext in pairs(seen) do list[#list + 1] = ext end
     table.sort(list)
     return list
+end
+
+function Filter.sorts()
+    return SORTS
 end
 
 -- ---------- predicate + comparator ----------
@@ -254,6 +290,25 @@ local function keeps(book, st)
     return true
 end
 
+local function cache_entry(book)
+    if not book or not book.id then return nil end
+    local ok, CacheMap = pcall(require, "lib.cache_map")
+    if ok and CacheMap and CacheMap.get then return CacheMap.get(book.id) end
+    return nil
+end
+
+local function book_size(book)
+    local n = tonumber(book and book.file_size)
+    if n and n > 0 then return n end
+    local entry = cache_entry(book)
+    return tonumber(entry and entry.bytes) or 0
+end
+
+local function book_opened(book)
+    local entry = cache_entry(book)
+    return tonumber(entry and (entry.last_opened or entry.last_access)) or 0
+end
+
 local function sort_key(book, key)
     if key == "title" then
         return string.lower(book.title or "")
@@ -261,11 +316,17 @@ local function sort_key(book, key)
         return string.lower(Fmt.authors(book))
     elseif key == "added" then
         return tostring(book.added_on or "")
+    elseif key == "published" then
+        return tostring(book.published_date or "")
     elseif key == "series" then
         return string.format("%s %08.2f", string.lower(book.series or "~"),
             tonumber(book.series_index) or 0)
     elseif key == "rating" then
         return string.format("%08.3f", tonumber(book.rating) or 0)
+    elseif key == "size" then
+        return string.format("%016d", book_size(book))
+    elseif key == "opened" then
+        return string.format("%016d", book_opened(book))
     end
     return ""
 end
@@ -383,20 +444,24 @@ function Sheet:_layout(draw, top)
         end)
     end
 
-    put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Format")) end)
     local format_keys = Filter.formats()
-    for _, ext in ipairs(format_keys) do
-        put(opt_h, function(iy)
-            Parts.option(draw, 0, iy, w, Filter.format_label(ext), "check",
-                st.formats[ext] == true, function()
-                    toggle_flag(st.formats, ext, format_keys)
-                    self:rebuild("ui")
-                end)
-        end)
+    if #format_keys >= 2 then
+        put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Format")) end)
+        for i = 1, #format_keys do
+            local ext = format_keys[i]
+            put(opt_h, function(iy)
+                Parts.option(draw, 0, iy, w, Filter.format_label(ext), "check",
+                    st.formats[ext] == true, function()
+                        toggle_flag(st.formats, ext, format_keys)
+                        self:rebuild("ui")
+                    end)
+            end)
+        end
     end
 
     put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Sort by")) end)
-    for _, opt in ipairs(SORTS) do
+    local sort_opts = Filter.sorts()
+    for _, opt in ipairs(sort_opts) do
         put(opt_h, function(iy)
             local on = st.sort_key == opt.id
             local dir = on and (st.sort_dir == "desc" and "down" or "up")

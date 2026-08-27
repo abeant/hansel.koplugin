@@ -14,5 +14,12 @@ eq(#Search.query("dune", books), 1, "title hit")
 eq(#Search.query("sf", books), 1, "tag hit")
 eq(#Search.query("", books), 0, "empty query")
 eq(#Search.query("nope", books), 0, "miss")
+eq(Search.why(books[1], "guin"), "Author", "why author")
+eq(Search.why(books[2], "dune"), "Title", "why title")
+package.loaded["lib.catalog"] = { all_books = function() return books end }
+package.loaded["lib.cache_map"] = { local_books = function() return {} end }
+local hits = Search.find("guin", "books")
+eq(#hits, 1, "find author")
+eq(hits[1].why, "Author", "find why")
 
-print("search: 5 ok")
+print("search: 9 ok")

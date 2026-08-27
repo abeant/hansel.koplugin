@@ -281,6 +281,21 @@ function Catalog.genre_counts() return count_field("genres") end
 function Catalog.category_counts() return count_field("categories") end
 function Catalog.tag_counts() return count_field("tags") end
 
+function Catalog.format_counts()
+    open()
+    local counts = {}
+    for _, book in pairs(_data.by_id) do
+        local ext = book.file_type
+        if type(ext) == "string" then
+            ext = string.lower(ext):gsub("^%s+", ""):gsub("%s+$", "")
+            if ext ~= "" then
+                counts[ext] = (counts[ext] or 0) + 1
+            end
+        end
+    end
+    return counts
+end
+
 function Catalog.books_in_genre(name)
     open()
     local out = {}
