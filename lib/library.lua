@@ -45,8 +45,8 @@ function Library.fetch_page(view, page, size)
     local ok, code, body = Http.get(url, {
         user = user,
         password = password,
-        timeout_block = 10,
-        timeout_total = 20,
+        timeout_block = 4,
+        timeout_total = 8,
     })
     if not ok then
         logger.warn("[hansel] catalog fetch failed", code)
@@ -151,6 +151,14 @@ function Library.fetch_feed(url, page, size, opts)
     if type(url) ~= "string" or url == "" then
         return cached_failure(cache_key, page, size)
     end
+    if not opts.bearer_token and not opts.force then
+        local ok_s, Session = pcall(require, "lib.session")
+        if ok_s and Session and Session.should_probe and not Session.should_probe() then
+            return cached_failure(cache_key, page, size, {
+                error_kind = "offline", status = 0,
+            })
+        end
+    end
     if url:find("/books/page", 1, true) or url:find("facet=", 1, true) then
         local rest = url
         rest = rest:gsub("[?&]page=%d+", ""):gsub("[?&]size=%d+", "")
@@ -161,8 +169,8 @@ function Library.fetch_feed(url, page, size, opts)
         if opts.bearer_token then
             ok, status, body = Http.get(rest, {
                 headers = { Authorization = "Bearer " .. opts.bearer_token },
-                timeout_block = 8,
-                timeout_total = 15,
+                timeout_block = 4,
+                timeout_total = 8,
             })
             response = {
                 ok = ok and true or false,
@@ -226,8 +234,8 @@ function Library.fetch_feed(url, page, size, opts)
     local ok, code, body = Http.get(url, {
         user = user,
         password = password,
-        timeout_block = 10,
-        timeout_total = 20,
+        timeout_block = 4,
+        timeout_total = 8,
     })
     if not ok then
         logger.warn("[hansel] feed fetch failed", code)
@@ -264,7 +272,12 @@ function Library.page(view, page, size)
     if ok_n and NetworkMgr and NetworkMgr.isOnline then
         online = NetworkMgr:isOnline()
     end
-    if online and Settings.can_browse() then
+    local probe = true
+    local ok_s, Session = pcall(require, "lib.session")
+    if ok_s and Session and Session.should_probe then
+        probe = Session.should_probe()
+    end
+    if online and Settings.can_browse() and probe then
         return Library.fetch_page(view, page, size) or cached
     end
     if cached then

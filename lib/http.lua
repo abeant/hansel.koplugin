@@ -115,8 +115,9 @@ function Http.request(url, opts)
     }
 
     local client = pick_client(url, http, https)
-    local block = opts.timeout_block or socketutil.LARGE_BLOCK_TIMEOUT
-    local total = opts.timeout_total or socketutil.LARGE_TOTAL_TIMEOUT
+    -- Never fall back to KOReader's LARGE_* (tens of seconds). That is an ANR.
+    local block = opts.timeout_block or 4
+    local total = opts.timeout_total or 8
 
     local ok, code, resp_headers, status = pcall(function()
         socketutil:set_timeout(block, total)

@@ -98,4 +98,15 @@ Settings.clear_t2()
 Settings.set_t1_credentials("opds-reader", "opds-secret")
 eq(Nav.recall("all").page, 4, "places return with the account")
 
+-- Offline cooldown must not hammer Grimmory (drawer open used to ANR here).
+package.loaded["lib.session"] = {
+    reset = function() end,
+    should_probe = function() return false end,
+}
+package.loaded["lib.nav"] = nil
+Nav = require("lib.nav")
+local before = #calls
+Nav.refresh()
+eq(#calls, before, "refresh skips HTTP when should_probe is false")
+
 print("nav: " .. checks .. " ok")

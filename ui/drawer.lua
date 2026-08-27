@@ -1,7 +1,6 @@
 local Device = require("device")
 local Geom = require("ui/geometry")
 local UIManager = require("ui/uimanager")
-local Trapper = require("ui/trapper")
 local _ = require("gettext")
 local T = require("ffi/util").template
 
@@ -278,7 +277,10 @@ end
 function Drawer.show(home)
     local drawer = Drawer:new{ home = home }
     UIManager:show(drawer)
-    Trapper:wrap(function()
+    -- Do not Trapper:wrap. That inhibits input for the whole Nav.refresh,
+    -- which used to sit on Grimmory HTTP until Android posted Close/Wait.
+    UIManager:nextTick(function()
+        if drawer._closed then return end
         Nav.refresh()
         if not drawer._closed then
             drawer:rebuild("ui")

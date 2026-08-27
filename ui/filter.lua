@@ -239,10 +239,22 @@ function Filter.note_formats(books)
     end
 end
 
+local _format_cache
+
 function Filter.formats()
+    local rev = 0
+    local ok, Catalog = pcall(require, "lib.catalog")
+    if ok and Catalog and Catalog.book_count then
+        rev = Catalog.book_count() or 0
+    end
+    local noted = 0
+    for _ in pairs(_seen_formats) do noted = noted + 1 end
+    local key = tostring(rev) .. ":" .. tostring(noted)
+    if _format_cache and _format_cache.key == key then
+        return _format_cache.list
+    end
     local seen = {}
     for ext in pairs(_seen_formats) do seen[ext] = true end
-    local ok, Catalog = pcall(require, "lib.catalog")
     if ok and Catalog then
         if Catalog.format_counts then
             for ext in pairs(Catalog.format_counts() or {}) do
@@ -263,6 +275,7 @@ function Filter.formats()
     local list = {}
     for ext in pairs(seen) do list[#list + 1] = ext end
     table.sort(list)
+    _format_cache = { key = key, list = list }
     return list
 end
 

@@ -209,7 +209,7 @@ api_reply = {
     page = { totalElements = 1 },
 }
 local current = Library.fetch_feed("http://grimmory.test:6060/api/v1/books/page", 1, 9,
-    { cache_key = "current-shape" })
+    { cache_key = "current-shape", force = true })
 eq(current.books[1].filename, "current.epub", "current BookFile filename")
 eq(current.books[1].file_type, "epub", "current BookFile extension")
 eq(current.books[1].file_size, 256 * 1024, "current BookFile size converted from KiB")
