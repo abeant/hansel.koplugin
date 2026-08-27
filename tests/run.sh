@@ -14,6 +14,7 @@ fi
 "$LUA" tests/test_opds.lua
 "$LUA" tests/test_session.lua
 "$LUA" tests/test_catalog_library.lua
+"$LUA" tests/test_paging.lua
 "$LUA" tests/test_nav.lua
 "$LUA" tests/test_manifest.lua
 "$LUA" tests/test_kosync_client.lua

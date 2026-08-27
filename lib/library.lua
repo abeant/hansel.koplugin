@@ -144,6 +144,133 @@ local function feed_cache_key(url)
     return key
 end
 
+local function urldecode(s)
+    s = tostring(s or ""):gsub("+", " ")
+    return (s:gsub("%%(%x%x)", function(h)
+        return string.char(tonumber(h, 16))
+    end))
+end
+
+local FACET_ALIASES = {
+    genres = "genre",
+    category = "genre",
+    categories = "genre",
+    tags = "tag",
+    authors = "author",
+    shelves = "shelf",
+}
+
+local FACET_FIELDS = {
+    genre = { "categories", "genres" },
+    tag = { "tags" },
+    series = { "series" },
+    author = { "authors" },
+    shelf = { "shelves" },
+}
+
+--- Grimmory facet URLs: /api/v1/books/page?facet=genre:Horror
+function Library.parse_facet(url)
+    if type(url) ~= "string" or url == "" then return nil end
+    local raw = url:match("[?&]facet=([^&]*)")
+    if not raw or raw == "" then return nil end
+    raw = urldecode(raw)
+    local key, value = raw:match("^([^:]+):(.*)$")
+    if not key or value == nil or value == "" then return nil end
+    key = string.lower(key)
+    key = FACET_ALIASES[key] or key
+    return { key = key, value = value }
+end
+
+local function field_values(book, field)
+    local v = book and book[field]
+    if v == nil then return {} end
+    if type(v) == "string" then
+        return v ~= "" and { v } or {}
+    end
+    if type(v) ~= "table" then
+        return { tostring(v) }
+    end
+    local out = {}
+    local function push(name)
+        if name ~= nil and tostring(name) ~= "" then
+            out[#out + 1] = tostring(name)
+        end
+    end
+    if v[1] ~= nil then
+        for i = 1, #v do
+            local row = v[i]
+            if type(row) == "table" then
+                push(row.name or row.title)
+                push(row.id or row.value)
+            else
+                push(row)
+            end
+        end
+    else
+        for k, row in pairs(v) do
+            if type(row) == "table" then
+                push(row.name or row.title)
+                push(row.id or row.value)
+            else
+                if type(k) == "string" then push(k) end
+                push(row)
+            end
+        end
+    end
+    return out
+end
+
+local function book_matches_facet(book, facet)
+    if not book or not facet then return false end
+    local fields = FACET_FIELDS[facet.key]
+    if not fields then return false end
+    local want = string.lower(facet.value)
+    for i = 1, #fields do
+        local values = field_values(book, fields[i])
+        for j = 1, #values do
+            if string.lower(values[j]) == want then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function filter_facet(books, facet)
+    local out = {}
+    for i = 1, #(books or {}) do
+        if book_matches_facet(books[i], facet) then
+            out[#out + 1] = books[i]
+        end
+    end
+    return out
+end
+
+local function can_probe()
+    local ok, Session = pcall(require, "lib.session")
+    if ok and Session and Session.should_probe then
+        return Session.should_probe()
+    end
+    return true
+end
+
+local function slice_list(list, page, size)
+    local total = #(list or {})
+    if size < 1 then size = 1 end
+    local last_page = math.max(1, math.ceil(math.max(total, 1) / size))
+    if page > last_page then page = last_page end
+    if page < 1 then page = 1 end
+    local first = (page - 1) * size + 1
+    local last = math.min(total, first + size - 1)
+    local books = {}
+    if first <= last then
+        for i = first, last do
+            books[#books + 1] = list[i]
+        end
+    end
+    return books, total, page
+end
+
 function Library.fetch_feed(url, page, size, opts)
     opts = opts or {}
     page = tonumber(page) or 1
@@ -284,22 +411,49 @@ function Library.feed_key(url)
 end
 
 function Library.page(view, page, size)
+    page = tonumber(page) or 1
+    size = tonumber(size) or Settings.page_size()
     local cached = Catalog.get_page(view, page, size)
     -- Never HTTP here. Unavailable only if we already know Grimmory is down —
     -- skipping a probe is not the same as the server being unreachable.
     local down, kind = library_unreachable()
+    local offline = (down and kind == "offline") and true or false
     if cached then
         cached.books = Books.hydrate_list(cached.books, { disk = false })
         cached.unavailable = down
-        cached.offline = down and kind == "offline" or false
+        cached.offline = offline
         cached.error_kind = down and kind or nil
         cached.status = 0
         cached.source = "cache"
         return cached
     end
+    -- Facet feeds (category/tag/series/author/shelf) page over the catalog we
+    -- already have. A missing *page cache* is not an empty shelf.
+    local facet = Library.parse_facet(view)
+    if facet then
+        local all = Books.hydrate_list(Catalog.all_books() or {}, { disk = false })
+        local matched = filter_facet(all, facet)
+        if #matched > 0 then
+            local books, total, clamped = slice_list(matched, page, size)
+            return {
+                books = books,
+                total = total,
+                page = clamped,
+                size = size,
+                offline = offline,
+                unavailable = down,
+                error_kind = down and kind or nil,
+                source = "cache",
+            }
+        end
+    end
+    local inherited = Catalog.view_total and Catalog.view_total(view) or nil
     return {
-        books = {}, total = 0, page = page or 1, size = size or Settings.page_size(),
-        offline = down and kind == "offline" or true,
+        books = {},
+        total = inherited or 0,
+        page = page,
+        size = size,
+        offline = offline,
         unavailable = down,
         error_kind = down and kind or nil,
         source = "none",
@@ -376,9 +530,21 @@ function Library.query(state, page, size, force_network)
     state = state or Filter.state()
     page = tonumber(page) or 1
     size = tonumber(size) or Settings.page_size()
-    local base = force_network and Library.fetch_page("all", page, size)
-        or Library.page("all", page, size)
-    base = base or cached_failure("all", page, size)
+    local feed_url = state.feed_url
+    local facet = feed_url and Library.parse_facet(feed_url) or nil
+
+    local base
+    if force_network then
+        if feed_url then
+            base = Library.fetch_feed(feed_url, page, size)
+        else
+            base = Library.fetch_page("all", page, size)
+        end
+    end
+    if not base then
+        base = Library.page("all", page, size)
+    end
+    base = base or cached_failure(feed_url and Library.feed_key(feed_url) or "all", page, size)
 
     local unified = unified_snapshot(base.books)
     local effective, hid = Filter.effective(state, base.unavailable)
@@ -389,28 +555,92 @@ function Library.query(state, page, size, force_network)
         source = unified.known
     end
 
-    local filtered = Filter.apply(source, effective)
-    local total = #filtered
-    if base.unavailable then
-        local last_page = math.max(1, math.ceil(math.max(total, 1) / size))
-        if page > last_page then page = last_page end
+    if facet then
+        local matched = filter_facet(source, facet)
+        if #matched > 0 then
+            source = matched
+        else
+            -- Magic shelves / id facets often aren't on the catalog record.
+            -- Fall back to the paged feed cache rather than a fake empty shelf.
+            facet = nil
+        end
     end
-    local first = (page - 1) * size + 1
-    local last = math.min(#filtered, first + size - 1)
-    local books = {}
-    for index = first, last do books[#books + 1] = filtered[index] end
+
+    if feed_url and not facet then
+        local key = Library.feed_key(feed_url)
+        local rec
+        if force_network then
+            rec = base
+        else
+            rec = Catalog.get_page(key, page, size)
+            if rec then
+                rec.books = Books.hydrate_list(rec.books, { disk = false })
+            end
+        end
+        local empty = not rec or #(rec.books or {}) == 0
+        if empty and (force_network or can_probe()) then
+            rec = Library.fetch_feed(feed_url, page, size) or rec
+        end
+        if not rec then
+            rec = Library.page(key, page, size)
+        end
+        rec = rec or {
+            books = {},
+            total = Catalog.view_total and Catalog.view_total(key) or 0,
+            page = page,
+            size = size,
+            source = "none",
+            unavailable = base.unavailable,
+            offline = base.offline,
+            error_kind = base.error_kind,
+        }
+        local page_books = Filter.apply(rec.books or {}, effective)
+        local total = tonumber(rec.total) or 0
+        local inherited = Catalog.view_total and Catalog.view_total(key)
+        if total == 0 and inherited then
+            total = inherited
+        elseif inherited and inherited > total then
+            total = inherited
+        end
+        if total == 0 then
+            total = #page_books
+        end
+        logger.dbg("[hansel] library feed page", key, page, size, #page_books, total)
+        return {
+            books = page_books,
+            total = total,
+            known_total = total,
+            counts = unified.counts,
+            page = page,
+            size = size,
+            offline = rec.offline and true or false,
+            unavailable = rec.unavailable and true or false,
+            error_kind = rec.error_kind or base.error_kind,
+            status = rec.status or base.status,
+            source = rec.source or "none",
+            stale = rec.stale and true or false,
+            fetched_at = rec.fetched_at,
+            hide_unavailable_active = hid or (rec.unavailable and Settings.hide_unavailable()) or false,
+        }
+    end
+
+    local filtered = Filter.apply(source, effective)
+    local books, known_total
+    books, known_total, page = slice_list(filtered, page, size)
     books = Books.hydrate_list(books)
 
-    if not Filter.active(state) and not base.unavailable
+    local total = known_total
+    if not feed_url and not Filter.active(state) and not base.unavailable
+            and base.source and base.source ~= "none"
             and tonumber(base.total) and base.total > total then
         total = base.total
     end
     logger.dbg("[hansel] library snapshot", base.source or "unknown",
-        base.error_kind or "ok", unified.counts.known, #filtered, page, size)
+        base.error_kind or "ok", unified.counts.known, known_total, page, size)
     return {
         books = books,
         total = total,
-        known_total = #filtered,
+        known_total = known_total,
         counts = unified.counts,
         page = page,
         size = size,

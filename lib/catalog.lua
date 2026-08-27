@@ -200,6 +200,25 @@ function Catalog.get_page(view, page, size)
     }
 end
 
+--- Best known total for a view, even when this exact page was never stored.
+function Catalog.view_total(view)
+    open()
+    view = view or "all"
+    local best
+    for _, rec in pairs(_data.pages) do
+        if rec.view == view then
+            local t = tonumber(rec.total)
+            if t and (not best or t > best) then
+                best = t
+            end
+        end
+    end
+    if not best and view == "all" then
+        best = tonumber(_data.manifest.total) or Catalog.book_count()
+    end
+    return best
+end
+
 function Catalog.upsert_book(book)
     open()
     if not book or not book.id then return end
