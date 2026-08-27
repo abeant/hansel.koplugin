@@ -82,15 +82,25 @@ function Home:_nav_page_size(area_h)
 end
 
 function Home:_page_count()
+    local size, total
     if self.nav_items then
-        local n = #self.nav_items
-        local size = self:_nav_page_size()
-        return math.max(1, math.ceil(math.max(n, 1) / size))
+        size = self._nav_size or self:_nav_page_size()
+        total = #self.nav_items
+    else
+        size = Settings.page_size()
+        total = tonumber(self.total)
+        if not total then total = #(self.books or {}) end
     end
-    local size = Settings.page_size()
-    local total = tonumber(self.total) or #self.books
     if size < 1 then size = 1 end
+    if total < 1 then return 1 end
     return math.max(1, math.ceil(total / size))
+end
+
+function Home:_clamp_page()
+    if self.page < 1 then self.page = 1 end
+    local pages = self:_page_count()
+    if self.page > pages then self.page = pages end
+    return pages
 end
 
 function Home:_subtitle()
@@ -186,7 +196,6 @@ function Home:build(draw)
         content_top = content_top + banner_h
     end
 
-    local pages = self:_page_count()
     local footer_h = Theme.rule + S(8) * 2 + Theme.icon
     local footer_y = h - footer_h
     if self.nav_items then
@@ -194,6 +203,7 @@ function Home:build(draw)
     else
         self:_build_grid(draw, content_top, footer_y)
     end
+    local pages = self:_page_count()
     draw:fill(0, footer_y, w, h - footer_y, Theme.paper)
     draw:rule(0, footer_y, w, Theme.rule)
     local btn_y = footer_y + Theme.rule + S(8)
@@ -230,6 +240,10 @@ function Home:_build_nav(draw, top, bottom)
     end
     local area_h = bottom - top
     local size = self:_nav_page_size(area_h)
+    self._nav_size = size
+    local pages = math.max(1, math.ceil(#items / size))
+    if self.page > pages then self.page = pages end
+    if self.page < 1 then self.page = 1 end
     local start = (self.page - 1) * size + 1
     local stop = math.min(#items, start + size - 1)
     for i = start, stop do
@@ -498,30 +512,20 @@ function Home:reload(force_network)
         end
         local size = Settings.page_size()
         local result
-        local st = Filter.state()
-        if self.view == "on_device" then
+        local st = Filter.state(self)
+        if self.view == "on_device" and not self.feed_url then
             st = Filter.on_device(st)
         end
         if self.feed_url then
-            local key = Library.feed_key and Library.feed_key(self.feed_url) or self.feed_url
-            result = Library.page(key, self.page, size)
-            if force_network and Library.fetch_feed then
-                result = Library.fetch_feed(self.feed_url, self.page, size) or result
-            elseif not force_network and self._feed_fetched ~= self.feed_url then
-                local url = self.feed_url
-                self._feed_fetched = url
-                UIManager:nextTick(function()
-                    if self._closed or self.feed_url ~= url then return end
-                    if Library.fetch_feed then
-                        local net = Library.fetch_feed(url, self.page, size)
-                        if net and net.source == "network" then
-                            self:reload(false)
-                        end
-                    end
-                end)
-            end
-        elseif self.view == "categories" or self.view == "tags"
-                or self.view == "series" or self.view == "authors" then
+            local with_feed = {}
+            for k, v in pairs(st) do with_feed[k] = v end
+            with_feed.feed_url = self.feed_url
+            st = with_feed
+        end
+        self.filter_state = st
+        local nav_view = (self.view == "categories" or self.view == "tags"
+            or self.view == "series" or self.view == "authors") and not self.feed_url
+        if nav_view then
             local Nav = require("lib.nav")
             Nav.harvest()
             local nav = Nav.get(self.view)
@@ -540,13 +544,36 @@ function Home:reload(force_network)
                     if not self._closed then self:reload(false) end
                 end)
             end
-        elseif self.view == "dashboard" then
+        elseif self.view == "dashboard" and not self.feed_url then
             result = self:_dashboard(size)
         else
+            self.nav_items = nil
             result = Library.query(st, self.page, size, force_network)
+            if self.feed_url and not force_network then
+                local url = self.feed_url
+                local pg = self.page
+                self._feed_fetched = self._feed_fetched or {}
+                local stamp = url .. ":" .. tostring(pg)
+                if not self._feed_fetched[stamp] then
+                    self._feed_fetched[stamp] = true
+                    UIManager:nextTick(function()
+                        if self._closed or self.feed_url ~= url then return end
+                        if Library.fetch_feed then
+                            local net = Library.fetch_feed(url, pg, size, { force = true })
+                            if net and net.source == "network" then
+                                self:reload(false)
+                            end
+                        end
+                    end)
+                end
+            end
         end
         result = result or { books = {}, total = 0, offline = true }
-        if result.page then self.page = result.page end
+        -- Only accept a page clamp from a result that actually knows the set.
+        -- A cache miss used to return page=N, total=0 and freeze the footer at 2/1.
+        if result.page and (tonumber(result.total) or 0) > 0 then
+            self.page = result.page
+        end
         local hydrated = result.books or {}
         Filter.note_formats(hydrated)
         local applied = Filter.effective(st, result.unavailable)
@@ -556,7 +583,11 @@ function Home:reload(force_network)
         else
             self.books = Filter.apply(hydrated, applied)
         end
-        self.total = result.total or #self.books
+        if self.nav_items then
+            self.total = #self.nav_items
+        else
+            self.total = tonumber(result.total) or #self.books
+        end
         local hid = result.hide_unavailable_active
         if hid == nil then
             hid = (result.unavailable and Settings.hide_unavailable()) and true or false
@@ -576,9 +607,7 @@ function Home:reload(force_network)
                 Settings.set_library_total(n)
             end
         end
-        if Filter.active(applied) and not grid_view then
-            self.total = #self.books
-        end
+        self:_clamp_page()
         self.offline = result.offline and true or false
         self.unavailable = result.unavailable and true or false
         self.hide_unavailable_active = hid and true or false
@@ -627,7 +656,11 @@ function Home:_kick_covers()
         end
     end)
     if Settings.get("prefetch_next_page_covers") and Covers.prefetch_next and self.page then
-        local state = self.filter_state or { view = self.view or "all" }
+        local state = self.filter_state
+        if not state then
+            state = { view = self.view or "all" }
+            if self.feed_url then state.feed_url = self.feed_url end
+        end
         local next_page = Library.query(state, self.page + 1, Settings.page_size(), false)
         if next_page and next_page.books then
             Covers.prefetch_next(next_page.books)
