@@ -9,9 +9,10 @@ stop-at: 2026-08-27T05:34:26Z
 - C: Format chips uppercase; empty status/format = no filter (unchecked, not all-on). Tools → Hansel Dashboard/All Books are radios. Test connection row. Grid density documented. Empty states and one primary detail action.
 - D: README badges (KOReader / AGPL-3.0 / Lua / Grimmory), empty screenshot slots, CHANGELOG, CONTRIBUTING, quiet AI footer. No ChatGPT badge.
 - E: scripts/package.sh builds hansel.koplugin.zip rooted at hansel.koplugin/. CI luacheck + tests + zip check. Draft GitHub release on tag v* only. No nested plugin dir in git.
+- F: END STATE holds. Plugin on origin/main. Remaining Dork strings are one-release migration only. Repo stays private. Screenshots empty. LICENSE AGPL-3.0.
 
 ## Next
-- F: Review against END STATE, then stop.
+- done
 
 ## Log
 - 2026-08-26T21:42:28Z A copied f7355c5 onto root, rebranded user-facing Dork/dork → Hansel/hansel, migration + tests, commit/push
@@ -19,3 +20,4 @@ stop-at: 2026-08-27T05:34:26Z
 - 2026-08-26T22:39:54Z C UI polish: uppercase formats, empty-set trap, Tools radios, Test connection, README settings/menu copy, commit/push
 - 2026-08-26T23:05:51Z D badges, CHANGELOG, CONTRIBUTING, empty screenshot slots, commit/push
 - 2026-08-26T23:40:00Z E package.sh, luacheckrc, CI, draft v* release workflow, luacheck-clean, commit/push
+- 2026-08-27T00:04:46Z F reviewed END STATE; documented Reset filters; fast-forwarded origin/main; stop
