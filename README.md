@@ -1,5 +1,9 @@
 # Hansel
 
+<p>
+  <img src="assets/hansel-lockup.svg" alt="Hansel" width="420">
+</p>
+
 [![KOReader 2024.12+](https://img.shields.io/badge/KOReader-2024.12%2B-222)](https://koreader.rocks/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Lua](https://img.shields.io/badge/Lua-5.1-blue)](https://www.lua.org/)
