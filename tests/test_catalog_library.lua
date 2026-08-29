@@ -236,5 +236,32 @@ eq(current.books[1].filename, "current.epub", "current BookFile filename")
 eq(current.books[1].file_type, "epub", "current BookFile extension")
 eq(current.books[1].file_size, 256 * 1024, "current BookFile size converted from KiB")
 eq(current.books[1].series_index, 3.5, "current series position")
+eq(current.books[1].library_id, nil, "library id omitted when Grimmory omits it")
+
+api_reply = {
+    content = {{
+        id = 10, title = "Dracula",
+        libraryId = 4, libraryName = "Classics",
+        primaryFile = { fileName = "dracula.epub", extension = "epub", filePath = "/classics/Bram Stoker/Dracula.epub" },
+        metadata = { title = "Dracula", authors = { "Bram Stoker" } },
+    }},
+    page = { totalElements = 1 },
+}
+local scoped = Library.fetch_feed("http://grimmory.test:6060/api/v1/books/page?facet=library:4", 1, 9,
+    { cache_key = "classics-shape", force = true })
+eq(scoped.books[1].library_id, "4", "library id kept from Grimmory")
+eq(scoped.books[1].library_name, "Classics", "library name kept from Grimmory")
+
+Catalog.put_page("all", 1, 20, {
+    { id = "1", title = "Zulu", file_type = "epub", library_id = "1", library_name = "Library" },
+    { id = "10", title = "Dracula", file_type = "epub", library_id = "4", library_name = "Classics" },
+}, 2)
+Settings.set("hide_unavailable", false)
+local classics_only = Library.query({
+    device = "all", status = {}, formats = {}, libraries = { ["4"] = true },
+    sort_key = "title", sort_dir = "asc",
+}, 1, 20)
+eq(#classics_only.books, 1, "library filter keeps one library")
+eq(classics_only.books[1].id, "10", "library filter kept Classics")
 
 print("catalog/library: " .. checks .. " ok")

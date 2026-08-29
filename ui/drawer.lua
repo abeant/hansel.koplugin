@@ -126,7 +126,7 @@ function Drawer:_rows()
         },
         {
             icon = "book", label = _("All Books"), count = tostring(total),
-            on = view == "all" and not (home and home.feed_url),
+            on = view == "all" and not (home and home.feed_url) and not (home and home.library_id),
             action = function() if home then home:set_view("all") end end,
         },
         {
@@ -136,7 +136,7 @@ function Drawer:_rows()
             action = function() if home then home:set_view("on_device") end end,
         },
         {
-            icon = "folder", label = _("Categories"), count = ncount("categories"),
+            icon = "folder", label = _("Genres"), count = ncount("categories"),
             on = view == "categories" and not (home and home.feed_url),
             action = function() if home then home:set_view("categories") end end,
         },
@@ -156,6 +156,20 @@ function Drawer:_rows()
             action = function() if home then home:set_view("authors") end end,
         },
     }
+
+    local library_items = {}
+    for _, item in ipairs(Nav.get("libraries").items or {}) do
+        library_items[#library_items + 1] = {
+            icon = "library", label = item.title,
+            count = item.count and tostring(item.count),
+            on = home and home.library_id == tostring(item.id),
+            action = function()
+                if home and home.open_library then
+                    home:open_library(item.id, item.title)
+                end
+            end,
+        }
+    end
 
     local shelf_items = {}
     for _, item in ipairs(Nav.get("shelves").items or {}) do
@@ -183,6 +197,9 @@ function Drawer:_rows()
 
     local rows = {}
     self:_add_group(rows, _("Home"), home_items)
+    if #library_items > 0 then
+        self:_add_group(rows, _("Libraries"), library_items)
+    end
     if #shelf_items > 0 then
         self:_add_group(rows, _("Shelves"), shelf_items)
     end

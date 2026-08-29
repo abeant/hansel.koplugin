@@ -25,6 +25,17 @@ package.loaded["lib.api"] = {
         if path == "/api/magic-shelves" then
             return true, 200, { { id = 8, name = "Unread later" } }
         end
+        if path == "/api/v1/libraries" then
+            return true, 200, {
+                { id = 1, name = "Library", bookCount = 429 },
+                { id = 4, name = "Classics", bookCount = 24 },
+            }
+        end
+        if path == "/api/v1/shelves" then
+            return true, 200, {
+                { id = 17, name = "Favorites", bookCount = 4 },
+            }
+        end
         if path == "/api/v1/books/facets" then
             return true, 200, { facets = {
                 { metadata = { key = "series", title = "Series" },
@@ -54,10 +65,14 @@ local series = Nav.fetch("series").items[1]
 local authors = Nav.fetch("authors").items[1]
 local shelves = Nav.fetch("shelves").items[1]
 local magic = Nav.fetch("magic").items[1]
+local libraries = Nav.fetch("libraries").items
 eq(series.title, "Earthsea", "series fetched over JWT navigation")
 eq(authors.title, "Ursula K. Le Guin", "authors fetched over JWT navigation")
 eq(shelves.href:match("facet=shelf:17") ~= nil, true, "shelf facet uses server id")
 eq(magic.href:match("facet=shelf:magic%%3A8") ~= nil, true, "magic shelf uses REST facet")
+eq(#libraries, 2, "libraries fetched over REST")
+eq(libraries[1].title, "Classics", "libraries sorted by name")
+eq(libraries[1].id, "4", "library id is the Grimmory id")
 
 Settings.set_t2_credentials("other", "secret")
 eq(#Nav.get("series").items, 0, "navigation memory cache is account scoped")

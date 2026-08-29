@@ -45,7 +45,7 @@ Server URL (`http://your-host:6060`), Grimmory username, password. After that yo
 - **Pin** — keep a downloaded book when you would otherwise evict it.
 - **Grid density** — Comfortable (3×3), Compact (4×4), Dense (5×4).
 - **Prefetch next page covers** — fetch the next page of cover art while you read this one.
-- **Reset filters and sort** — clear On device / Status / Format / Sort for the current shelf. Format chips are only the types in this library. Sort can use title, author, date added, published date, series, rating, file size, or last opened.
+- **Reset filters and sort** — clear On device / Status / Format / Library / Sort for the current shelf. Format chips are only the types in this library. Sort can use title, author, date added, published date, series, rating, file size, or last opened.
 
 ## Tools → Hansel
 

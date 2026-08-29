@@ -202,6 +202,8 @@ ok(drawer.panel and drawer.panel.w < env.Screen.getWidth(), "drawer is not a pan
 local drawer_text = collected_text(drawer)
 ok(drawer_text["On this device"], "drawer missing On this device row")
 ok(drawer_text["All Books"], "drawer missing All Books row")
+ok(drawer_text["Genres"], "drawer missing Genres row")
+ok(not drawer_text["Categories"], "drawer still says Categories")
 UIManager:close(drawer)
 tap_everything(function() return Drawer:new{ home = home } end, "drawer")
 
@@ -511,7 +513,7 @@ end
 local Icon = require("ui.icon")
 local names = { "menu", "filter", "grid", "left", "right", "up", "down", "close", "check",
                 "dot", "pin", "more", "book", "layers", "person", "home", "star", "tray",
-                "spark", "gear", "hash", "folder", "tag", "sliders", "search" }
+                "spark", "gear", "hash", "folder", "library", "tag", "sliders", "search" }
 for _, name in ipairs(names) do
     ok(Icon.has(name), "missing icon " .. name)
     local before = env.bb.calls

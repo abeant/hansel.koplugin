@@ -16,14 +16,14 @@ local KINDS = {
     { id = "books", text = _("Books") },
     { id = "authors", text = _("Authors") },
     { id = "tags", text = _("Tags") },
-    { id = "categories", text = _("Categories") },
+    { id = "categories", text = _("Genres") },
 }
 
 local TITLES = {
     books = _("Search books"),
     authors = _("Search authors"),
     tags = _("Search tags"),
-    categories = _("Search categories"),
+    categories = _("Search genres"),
 }
 
 local SearchUI = {}
