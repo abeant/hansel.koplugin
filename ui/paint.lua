@@ -219,7 +219,7 @@ end
 -- ---------- images ----------
 
 --- Fit the whole image inside the box (no crop). Returns x,y,w,h of the art.
-function Draw:image(path, x, y, max_w, max_h)
+function Draw:image(path, x, y, max_w, max_h, align)
     max_w, max_h = math.floor(max_w), math.floor(max_h)
     if max_w < 1 or max_h < 1 then return nil end
     local ok_probe, probe = pcall(function()
@@ -245,7 +245,14 @@ function Draw:image(path, x, y, max_w, max_h)
     end)
     if not ok or not widget then return nil end
     self:keep(widget)
-    local ix = math.floor(x + (max_w - iw) / 2)
+    local ix
+    if align == "left" then
+        ix = x
+    elseif align == "right" then
+        ix = x + max_w - iw
+    else
+        ix = math.floor(x + (max_w - iw) / 2)
+    end
     local iy = math.floor(y + (max_h - ih) / 2)
     self:place(widget, ix, iy)
     return ix, iy, iw, ih

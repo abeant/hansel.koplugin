@@ -197,20 +197,16 @@ function Account:build(draw)
     local in_ = Settings.has_tier2()
     local y = header_h + S(28)
     local root = Paths.plugin_dir() or "."
-    local lfs = require("libs/libkoreader-lfs")
-    local logo = root .. "/assets/hansel-lockup.png"
-    if not lfs.attributes(logo, "mode") then
-        logo = root .. "/assets/grimmory-wordmark.jpg"
-        if not lfs.attributes(logo, "mode") then
-            logo = root .. "/assets/grimmory-wordmark.png"
-        end
+    local logo = root .. "/assets/grimmory-wordmark.jpg"
+    if not require("libs/libkoreader-lfs").attributes(logo, "mode") then
+        logo = root .. "/assets/grimmory-wordmark.png"
     end
     local logo_w = w - Theme.pad * 4
     local logo_h = S(44)
     if draw:image(logo, Theme.pad * 2, y, logo_w, logo_h) then
         y = y + logo_h + S(14)
     else
-        draw:text_center(math.floor(w / 2), y, "Hansel", Theme.text("title"), Theme.ink, w - Theme.pad * 2)
+        draw:text_center(math.floor(w / 2), y, "Grimmory", Theme.text("title"), Theme.ink, w - Theme.pad * 2)
         y = y + draw:label_height(Theme.text("title")) + S(14)
     end
     draw:text_center(math.floor(w / 2), y,
