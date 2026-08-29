@@ -8,6 +8,7 @@ local Base = require("ui.base")
 local CacheMap = require("lib.cache_map")
 local Nav = require("lib.nav")
 local Parts = require("ui.parts")
+local Paths = require("lib.paths")
 local Settings = require("lib.settings")
 local Session = require("lib.session")
 local Theme = require("ui.theme")
@@ -49,6 +50,41 @@ end
 function Drawer:_toggle(group)
     self._closed_groups[group] = not self._closed_groups[group]
     self:rebuild("ui")
+end
+
+local function logo_path()
+    local root = Paths.plugin_dir() or "."
+    local lfs = require("libs/libkoreader-lfs")
+    local png = root .. "/assets/hansel.png"
+    if lfs.attributes(png, "mode") == "file" then return png end
+    local svg = root .. "/hansel.svg"
+    if lfs.attributes(svg, "mode") == "file" then return svg end
+    return nil
+end
+
+function Drawer:_brand(draw)
+    local w = self.width
+    local pad_x = Theme.pad * 2
+    local pad_y = S(16)
+    local logo_h = S(32)
+    local logo_w = w - pad_x * 2
+    local y = pad_y
+    local path = logo_path()
+    if path and draw:image(path, pad_x, y, logo_w, logo_h, "left") then
+        y = y + logo_h + S(10)
+    else
+        draw:text(pad_x, y, "Hansel", Theme.text("title"), Theme.ink, logo_w)
+        y = y + draw:label_height(Theme.text("title")) + S(8)
+    end
+    local known_total = self.home and (self.home.library_total or self.home.total) or 0
+    local sub_face = Theme.mono("tiny")
+    draw:text(pad_x, y,
+        T(_("%1 · %2 / %3 books"), host_label(), connection_suffix(),
+            known_total),
+        sub_face, Theme.graphite, logo_w)
+    y = y + draw:label_height(sub_face) + S(12)
+    draw:rule(0, y, w, Theme.rule)
+    return y + Theme.rule
 end
 
 function Drawer:_add_group(rows, name, items)
@@ -181,22 +217,9 @@ end
 function Drawer:build(draw)
     local w = self.width
     local h = Screen:getHeight()
-    local known_total = self.home and (self.home.library_total or self.home.total) or 0
     draw:fill(0, 0, w, h, Theme.paper)
 
-    local name_face = Theme.text("title")
-    local sub_face = Theme.mono("tiny")
-    local y = S(14)
-    local name_h = draw:label_height(name_face)
-    draw:text(Theme.pad, y, "Hansel", name_face, Theme.ink, w - Theme.pad * 2)
-    y = y + name_h + S(3)
-    draw:text(Theme.pad, y,
-        T(_("%1 · %2 / %3 books"), host_label(), connection_suffix(),
-            known_total),
-        sub_face, Theme.graphite, w - Theme.pad * 2)
-    y = y + draw:label_height(sub_face) + S(10)
-    draw:rule(0, y, w, Theme.rule)
-    local header_bottom = y + Theme.rule
+    local header_bottom = self:_brand(draw)
 
     local rows = self:_rows()
     local face_h = draw:label_height(Theme.mono())
@@ -239,14 +262,7 @@ function Drawer:build(draw)
     self._max_scroll = math.max(0, cursor - header_bottom - (h - header_bottom))
 
     draw:fill(0, 0, w, header_bottom, Theme.paper)
-    local hy = S(14)
-    draw:text(Theme.pad, hy, "Hansel", name_face, Theme.ink, w - Theme.pad * 2)
-    hy = hy + name_h + S(3)
-    draw:text(Theme.pad, hy,
-        T(_("%1 · %2 / %3 books"), host_label(), connection_suffix(),
-            known_total),
-        sub_face, Theme.graphite, w - Theme.pad * 2)
-    draw:rule(0, header_bottom - Theme.rule, w, Theme.rule)
+    self:_brand(draw)
     draw:fill(w - Theme.rule, 0, Theme.rule, h, Theme.ink)
     draw:tap(0, 0, w, header_bottom, function() end, false)
 end
