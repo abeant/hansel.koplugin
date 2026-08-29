@@ -227,6 +227,10 @@ end
 
 local function book_matches_facet(book, facet)
     if not book or not facet then return false end
+    if facet.key == "unshelved" then
+        local values = field_values(book, "shelves")
+        return #values == 0
+    end
     local fields = FACET_FIELDS[facet.key]
     if not fields then return false end
     local want = string.lower(facet.value)
@@ -283,6 +287,11 @@ function Library.fetch_feed(url, page, size, opts)
     local cache_key = opts.cache_key or feed_cache_key(url)
     if type(url) ~= "string" or url == "" then
         return cached_failure(cache_key, page, size)
+    end
+    -- Unshelved is a Grimmory sidebar pin, not a books/page facet (400).
+    local unshelved = Library.parse_facet(url)
+    if unshelved and unshelved.key == "unshelved" then
+        return Library.page(cache_key, page, size)
     end
     if not opts.bearer_token and not opts.force then
         local ok_s, Session = pcall(require, "lib.session")
@@ -438,7 +447,7 @@ function Library.page(view, page, size)
     if facet then
         local all = Books.hydrate_list(Catalog.all_books() or {}, { disk = false })
         local matched = filter_facet(all, facet)
-        if #matched > 0 then
+        if #matched > 0 or facet.key == "unshelved" then
             local books, total, clamped = slice_list(matched, page, size)
             return {
                 books = books,
@@ -537,9 +546,10 @@ function Library.query(state, page, size, force_network)
     size = tonumber(size) or Settings.page_size()
     local feed_url = state.feed_url
     local facet = feed_url and Library.parse_facet(feed_url) or nil
+    local local_facet = facet and facet.key == "unshelved"
 
     local base
-    if force_network then
+    if force_network and not local_facet then
         if feed_url then
             base = Library.fetch_feed(feed_url, page, size)
         else
@@ -562,7 +572,7 @@ function Library.query(state, page, size, force_network)
 
     if facet then
         local matched = filter_facet(source, facet)
-        if #matched > 0 then
+        if #matched > 0 or local_facet then
             source = matched
         else
             -- Magic shelves / id facets often aren't on the catalog record.

@@ -240,7 +240,7 @@ end
 
 -- ---------- .nav-row ----------
 
-function Parts.nav_row(draw, x, y, w, icon, label, count, on, callback)
+function Parts.nav_row(draw, x, y, w, icon, label, count, on, callback, icon_file)
     local face = Theme.mono()
     local glyph = math.max(draw:label_height(face), Theme.s(16))
     local widget, _, th = draw:label(label, face, on and Theme.paper or Theme.ink,
@@ -249,9 +249,12 @@ function Parts.nav_row(draw, x, y, w, icon, label, count, on, callback)
     if on then
         draw:fill(x, y, w, h, Theme.ink)
     end
-    if icon then
-        draw:icon(icon, x + Theme.pad, y + math.floor((h - glyph) / 2), glyph,
-            on and Theme.paper or Theme.ink)
+    local gx = x + Theme.pad
+    local gy = y + math.floor((h - glyph) / 2)
+    -- Custom SVG files don't invert with the selected row; use the shape then.
+    local painted = icon_file and not on and draw:image(icon_file, gx, gy, glyph, glyph)
+    if not painted and icon then
+        draw:icon(icon, gx, gy, glyph, on and Theme.paper or Theme.ink)
     end
     draw:place(widget, x + Theme.pad + glyph + S(9), y + math.floor((h - th) / 2))
     if count and count ~= "" then

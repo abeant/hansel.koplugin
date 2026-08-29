@@ -5,6 +5,7 @@ local OPDS = require("lib.opds")
 local Origin = require("lib.origin")
 local Settings = require("lib.settings")
 local logger = require("logger")
+local _ = require("gettext")
 
 local Nav = {}
 
@@ -140,6 +141,73 @@ local function rows_from(body)
     return nil
 end
 
+local function unshelved_count()
+    if not Catalog.all_books then return nil end
+    local n = 0
+    for _, book in ipairs(Catalog.all_books()) do
+        local values = book.shelves
+        if type(values) == "string" then values = { values } end
+        local has = false
+        for _, row in ipairs(type(values) == "table" and values or {}) do
+            local name = type(row) == "table" and (row.name or row.title) or row
+            if name and tostring(name) ~= "" then
+                has = true
+                break
+            end
+        end
+        if not has then n = n + 1 end
+    end
+    return n
+end
+
+local function unshelved_item()
+    local origin = Settings.server_url()
+    local href = origin and (origin .. "/api/v1/books/page?facet=unshelved:1") or nil
+    return {
+        id = "unshelved",
+        title = _("Unshelved"),
+        count = unshelved_count(),
+        href = href,
+        icon = "inbox",
+        icon_type = "LUCIDE",
+        special = "unshelved",
+    }
+end
+
+local function attach_unshelved(parsed)
+    local items = (parsed and parsed.items) or {}
+    local out = { unshelved_item() }
+    for i = 1, #items do
+        if items[i].id ~= "unshelved" and items[i].special ~= "unshelved" then
+            out[#out + 1] = items[i]
+        end
+    end
+    return { items = out }
+end
+
+-- Grimmory Favorites is a real shelf with a heart. Harvested rows have no
+-- icon field; CUSTOM_SVG names are files under /api/v1/icons/{name}/content.
+local function apply_icons(items, fetch_custom)
+    local Icons = require("lib.icons")
+    local n = 0
+    for i = 1, #(items or {}) do
+        local item = items[i]
+        if (not item.icon or item.icon == "") and item.title == "Favorites" then
+            item.icon = "heart"
+            item.icon_type = item.icon_type or "LUCIDE"
+        end
+        if string.upper(tostring(item.icon_type or "")) == "CUSTOM_SVG"
+                and item.icon and item.icon ~= "" then
+            local path = Icons.cached(item.icon)
+            if not path and fetch_custom and n < 6 then
+                n = n + 1
+                path = Icons.fetch(item.icon)
+            end
+            item.icon_file = path
+        end
+    end
+end
+
 local function libraries_list()
     if not can_probe() then return nil end
     local ok, _, body = rest_get("/api/v1/libraries")
@@ -157,11 +225,14 @@ local function libraries_list()
                 title = name,
                 count = tonumber(row.bookCount or row.count),
                 href = facet_href("libraries", tostring(id)),
+                icon = row.icon,
+                icon_type = row.iconType or row.icon_type,
             }
         end
     end
     if #items == 0 then return nil end
     table.sort(items, function(a, b) return a.title < b.title end)
+    apply_icons(items, true)
     return { items = items }
 end
 
@@ -182,11 +253,14 @@ local function shelves_list()
                 title = name,
                 count = tonumber(row.bookCount or row.count),
                 href = facet_href("shelves", tostring(id)),
+                icon = row.icon,
+                icon_type = row.iconType or row.icon_type,
             }
         end
     end
     if #items == 0 then return nil end
     table.sort(items, function(a, b) return a.title < b.title end)
+    apply_icons(items, true)
     return { items = items }
 end
 
@@ -230,10 +304,13 @@ local function magic_list()
             items[#items + 1] = {
                 title = row.name,
                 href = facet_href("shelves", "magic:" .. tostring(row.id)),
+                icon = row.icon,
+                icon_type = row.iconType or row.icon_type,
             }
         end
     end
     table.sort(items, function(a, b) return a.title < b.title end)
+    apply_icons(items, true)
     return { items = items }
 end
 
@@ -371,6 +448,7 @@ local function harvest_from_catalog(kind)
     end
     if #items == 0 then return nil end
     table.sort(items, function(a, b) return a.title < b.title end)
+    if kind == "shelves" then apply_icons(items, false) end
     return { items = items }
 end
 
@@ -398,13 +476,15 @@ function Nav.fetch(kind, opts)
                 _cache[kind] = from_rest
                 return from_rest
             end
-        elseif kind == "shelves" then
+        end
+        if kind == "shelves" then
             local from_rest = shelves_list()
             if from_rest then
-                _cache[kind] = from_rest
-                return from_rest
+                _cache[kind] = attach_unshelved(from_rest)
+                return _cache[kind]
             end
-        elseif kind == "magic" then
+        end
+        if kind == "magic" then
             local from_rest = magic_list()
             if from_rest then
                 _cache[kind] = from_rest
@@ -413,14 +493,14 @@ function Nav.fetch(kind, opts)
         elseif FACET_MATCH[kind] then
             local from_rest = filter_options_list(kind)
             if from_rest then
-                _cache[kind] = from_rest
-                return from_rest
+                _cache[kind] = kind == "shelves" and attach_unshelved(from_rest) or from_rest
+                return _cache[kind]
             end
             if not opts.rest_only or _filter_payload == false then
                 from_rest = facet_list(kind)
                 if from_rest then
-                    _cache[kind] = from_rest
-                    return from_rest
+                    _cache[kind] = kind == "shelves" and attach_unshelved(from_rest) or from_rest
+                    return _cache[kind]
                 end
             end
         end
@@ -443,14 +523,17 @@ function Nav.fetch(kind, opts)
                 if ok then
                     local parsed = OPDS.parse_nav(body, url)
                     if parsed.items and #parsed.items > 0 then
-                        _cache[kind] = parsed
-                        return parsed
+                        _cache[kind] = kind == "shelves" and attach_unshelved(parsed) or parsed
+                        return _cache[kind]
                     end
                 else
                     logger.dbg("[hansel] nav fetch failed", kind, path, code)
                 end
             end
         end
+    end
+    if kind == "shelves" then
+        _cache[kind] = attach_unshelved(_cache[kind])
     end
     return _cache[kind] or { items = {} }
 end
@@ -467,6 +550,7 @@ function Nav.harvest()
     end
     local libs = harvest_libraries()
     if libs then _cache.libraries = libs end
+    _cache.shelves = attach_unshelved(_cache.shelves)
     _fetched_at = os.time()
 end
 

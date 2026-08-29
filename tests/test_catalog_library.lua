@@ -264,4 +264,23 @@ local classics_only = Library.query({
 eq(#classics_only.books, 1, "library filter keeps one library")
 eq(classics_only.books[1].id, "10", "library filter kept Classics")
 
+Catalog.put_page("all", 1, 20, {
+    { id = "1", title = "Zulu", file_type = "epub",
+        shelves = { { id = 17, name = "Favorites" } } },
+    { id = "10", title = "Dracula", file_type = "epub" },
+    { id = "11", title = "Emma", file_type = "epub", shelves = {} },
+}, 3)
+local unshelved = Library.query({
+    device = "all", status = {}, formats = {},
+    sort_key = "title", sort_dir = "asc",
+    feed_url = "http://grimmory.test:6060/api/v1/books/page?facet=unshelved:1",
+}, 1, 20)
+local unshelved_ids = {}
+for _, book in ipairs(unshelved.books) do
+    unshelved_ids[book.id] = true
+    ok(book.id ~= "1", "Unshelved dropped Favorites")
+end
+eq(unshelved_ids["10"], true, "Unshelved kept a book with no shelves field")
+eq(unshelved_ids["11"], true, "Unshelved kept a book with empty shelves")
+
 print("catalog/library: " .. checks .. " ok")

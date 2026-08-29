@@ -23,18 +23,25 @@ package.loaded["lib.api"] = {
     rest_get = function(path)
         calls[#calls + 1] = path
         if path == "/api/magic-shelves" then
-            return true, 200, { { id = 8, name = "Unread later" } }
+            return true, 200, {
+                { id = 8, name = "Unread later", icon = "tag", iconType = "LUCIDE" },
+            }
         end
         if path == "/api/v1/libraries" then
             return true, 200, {
-                { id = 1, name = "Library", bookCount = 429 },
-                { id = 4, name = "Classics", bookCount = 24 },
+                { id = 1, name = "Library", bookCount = 429, icon = "library", iconType = "LUCIDE" },
+                { id = 4, name = "Classics", bookCount = 24, icon = "book-open", iconType = "LUCIDE" },
             }
         end
         if path == "/api/v1/shelves" then
             return true, 200, {
-                { id = 17, name = "Favorites", bookCount = 4 },
+                { id = 17, name = "Favorites", bookCount = 4, icon = "heart", iconType = "LUCIDE" },
+                { id = 22, name = "Dragons", bookCount = 3, icon = "dragon-mark", iconType = "CUSTOM_SVG" },
             }
+        end
+        if path == "/api/v1/icons/dragon-mark/content" then
+            return true, 200,
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>'
         end
         if path == "/api/v1/books/facets" then
             return true, 200, { facets = {
@@ -61,18 +68,35 @@ local function eq(actual, expected, message)
         tostring(actual), tostring(expected)))
 end
 
+os.execute("mkdir -p /tmp/hansel-test/settings/hansel/icons")
+
 local series = Nav.fetch("series").items[1]
 local authors = Nav.fetch("authors").items[1]
-local shelves = Nav.fetch("shelves").items[1]
+local shelf_items = Nav.fetch("shelves").items
 local magic = Nav.fetch("magic").items[1]
 local libraries = Nav.fetch("libraries").items
 eq(series.title, "Earthsea", "series fetched over JWT navigation")
 eq(authors.title, "Ursula K. Le Guin", "authors fetched over JWT navigation")
-eq(shelves.href:match("facet=shelf:17") ~= nil, true, "shelf facet uses server id")
+eq(shelf_items[1].title, "Unshelved", "Unshelved sits above Favorites")
+eq(shelf_items[1].icon, "inbox", "Unshelved uses the inbox glyph")
+local favorites, dragons
+for i = 2, #shelf_items do
+    if shelf_items[i].title == "Favorites" then favorites = shelf_items[i] end
+    if shelf_items[i].title == "Dragons" then dragons = shelf_items[i] end
+end
+eq(favorites ~= nil, true, "Favorites follows Unshelved")
+eq(favorites.icon, "heart", "Favorites keeps the Grimmory heart")
+eq(favorites.href:match("facet=shelf:17") ~= nil, true, "shelf facet uses server id")
+eq(dragons ~= nil, true, "custom-svg shelf is listed")
+eq(dragons.icon, "dragon-mark", "custom svg keeps Grimmory icon name")
+eq(dragons.icon_type, "CUSTOM_SVG", "custom svg keeps Grimmory icon type")
+eq(type(dragons.icon_file) == "string", true, "custom svg is cached to a file")
 eq(magic.href:match("facet=shelf:magic%%3A8") ~= nil, true, "magic shelf uses REST facet")
+eq(magic.icon, "tag", "magic shelf keeps Grimmory lucide icon")
 eq(#libraries, 2, "libraries fetched over REST")
 eq(libraries[1].title, "Classics", "libraries sorted by name")
 eq(libraries[1].id, "4", "library id is the Grimmory id")
+eq(libraries[1].icon, "book-open", "Classics keeps Grimmory lucide icon")
 
 Settings.set_t2_credentials("other", "secret")
 eq(#Nav.get("series").items, 0, "navigation memory cache is account scoped")
