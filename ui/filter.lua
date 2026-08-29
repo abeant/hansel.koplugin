@@ -116,6 +116,7 @@ local function defaults()
         status = default_status(),
         formats = {},
         libraries = {},
+        shelves = {},
         sort_key = "added",
         sort_dir = "desc",
     }
@@ -134,6 +135,10 @@ local function normalize_libraries(libraries)
         if on then out[tostring(key)] = true end
     end
     return out
+end
+
+local function normalize_shelves(shelves)
+    return normalize_libraries(shelves)
 end
 
 local function normalize_formats(formats)
@@ -160,6 +165,7 @@ local function normalize(raw)
         status = normalize_status(raw.status),
         formats = normalize_formats(raw.formats),
         libraries = normalize_libraries(raw.libraries),
+        shelves = normalize_shelves(raw.shelves),
         sort_key = raw.sort_key or "added",
         sort_dir = raw.sort_dir or "desc",
     }
@@ -171,6 +177,7 @@ local function legacy_global()
         status = normalize_status(Settings.get("filter_status")),
         formats = normalize_formats(Settings.get("filter_formats")),
         libraries = {},
+        shelves = {},
         sort_key = Settings.get("sort_key") or "added",
         sort_dir = Settings.get("sort_dir") or "desc",
     }
@@ -230,6 +237,7 @@ function Filter.active(state)
     if st.device ~= "all" then return true end
     if is_restricted(st.status, STATUS_IDS) then return true end
     if type(st.libraries) == "table" and next(st.libraries) then return true end
+    if type(st.shelves) == "table" and next(st.shelves) then return true end
     return is_restricted(st.formats, Filter.formats())
 end
 
@@ -257,6 +265,21 @@ function Filter.libraries()
         end
     end
     table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end
+
+--- Grimmory shelves, Unshelved first.
+function Filter.shelves()
+    local list = {}
+    local ok_n, Nav = pcall(require, "lib.nav")
+    if ok_n and Nav and Nav.get then
+        for _, item in ipairs((Nav.get("shelves").items or {})) do
+            local id = item.id or item.special or item.title
+            if id and item.title and item.title ~= "" then
+                list[#list + 1] = { id = tostring(id), name = item.title }
+            end
+        end
+    end
     return list
 end
 
@@ -326,6 +349,31 @@ end
 
 -- ---------- predicate + comparator ----------
 
+local function book_is_unshelved(book)
+    local v = book and book.shelves
+    if v == nil or v == "" then return true end
+    if type(v) == "string" then return false end
+    if type(v) ~= "table" then return true end
+    for _, row in ipairs(v) do
+        local name = type(row) == "table" and (row.name or row.title or row.id) or row
+        if name and tostring(name) ~= "" then return false end
+    end
+    return true
+end
+
+local function book_matches_shelves(book, selected)
+    if selected.unshelved and book_is_unshelved(book) then return true end
+    local v = book and book.shelves
+    if type(v) == "string" then v = { v } end
+    for _, row in ipairs(type(v) == "table" and v or {}) do
+        local name = type(row) == "table" and (row.name or row.title) or row
+        local id = type(row) == "table" and (row.id or row.value) or name
+        if name and selected[tostring(name)] then return true end
+        if id and selected[tostring(id)] then return true end
+    end
+    return false
+end
+
 local function keeps(book, st)
     local state = book.state or "remote"
     if st.device == "downloaded" and state == "remote" then return false end
@@ -345,6 +393,10 @@ local function keeps(book, st)
     if type(st.libraries) == "table" and next(st.libraries) then
         local id = book.library_id and tostring(book.library_id)
         if not id or not st.libraries[id] then return false end
+    end
+
+    if type(st.shelves) == "table" and next(st.shelves) then
+        if not book_matches_shelves(book, st.shelves) then return false end
     end
     return true
 end
@@ -424,6 +476,9 @@ local Sheet = Base:extend{
 function Sheet:setup()
     Filter._home = self.home
     self.state = Filter.state(self.home)
+    if self.home and self.home.library_id and not next(self.state.libraries) then
+        self.state.libraries[tostring(self.home.library_id)] = true
+    end
     self.scroll = 0
     local scratch = Draw.new()
     local height = self:_layout(scratch, 0)
@@ -493,28 +548,33 @@ function Sheet:_layout(draw, top)
         put(ch, function(iy) Parts.chips(draw, 0, iy, w, chips) end)
     end
 
-    local libs = Filter.libraries()
-    if #libs >= 2 and not (self.home and self.home.library_id) then
-        put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Library")) end)
-        do
-            local chips = {}
-            local keys = {}
-            for i = 1, #libs do keys[i] = libs[i].id end
-            for i = 1, #libs do
-                local lib = libs[i]
-                chips[#chips + 1] = {
-                    label = lib.name,
-                    on = st.libraries[lib.id] == true,
-                    callback = function()
-                        toggle_flag(st.libraries, lib.id, keys)
-                        self:rebuild("ui")
-                    end,
-                }
-            end
-            local ch = S(10) * 2 + draw:label_height(Theme.mono("small")) + S(5) * 2
-            put(ch, function(iy) Parts.chips(draw, 0, iy, w, chips) end)
+    local function put_chips(title, items, map)
+        if #items == 0 then return end
+        put(sec_h, function(iy) Parts.section(draw, 0, iy, w, title) end)
+        local chips, keys = {}, {}
+        for i = 1, #items do
+            local it = items[i]
+            keys[i] = it.id
+            chips[i] = {
+                label = it.name,
+                on = map[it.id] == true,
+                callback = function()
+                    toggle_flag(map, it.id, keys)
+                    self:rebuild("ui")
+                end,
+            }
         end
+        local line = S(10) * 2 + draw:label_height(Theme.mono("small")) + S(5) * 2
+        local rows = #chips > 4 and 2 or 1
+        local ch = line + (rows - 1) * (line - S(14) + S(6))
+        put(ch, function(iy) Parts.chips(draw, 0, iy, w, chips) end)
     end
+
+    local libs = Filter.libraries()
+    if #libs >= 2 then
+        put_chips(_("Library"), libs, st.libraries)
+    end
+    put_chips(_("Shelf"), Filter.shelves(), st.shelves)
 
     put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Status")) end)
     for _, opt in ipairs(STATUS) do
@@ -631,7 +691,21 @@ end
 
 function Filter.show(home)
     Filter._home = home
-    UIManager:show(Sheet:new{ home = home })
+    local ok_n, Nav = pcall(require, "lib.nav")
+    if ok_n and Nav and Nav.harvest then Nav.harvest() end
+    local sheet = Sheet:new{ home = home }
+    UIManager:show(sheet)
+    if not (ok_n and Nav and Nav.fetch) then return end
+    local function pull(kind, nxt)
+        return function()
+            if sheet._closed then return end
+            Nav.fetch(kind, { rest_only = true, force_rest = true })
+            if sheet._closed then return end
+            sheet:rebuild("ui")
+            if nxt then UIManager:scheduleIn(0.05, nxt) end
+        end
+    end
+    UIManager:scheduleIn(0.05, pull("libraries", pull("shelves")))
 end
 
 return Filter

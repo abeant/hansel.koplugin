@@ -27,6 +27,9 @@ for i = 1, 20 do
         series = (i % 4 == 0) and "A Series" or nil,
         series_index = (i % 4 == 0) and i or nil,
         categories = { "theory", "editing", "craft" },
+        library_id = (i % 2 == 0) and "4" or "1",
+        library_name = (i % 2 == 0) and "Classics" or "Library",
+        shelves = (i % 3 == 0) and { { id = 17, name = "Favorites" } } or {},
     }
 end
 
@@ -52,6 +55,8 @@ package.loaded["lib.covers"] = {
 package.loaded["lib.catalog"] = {
     get_book = function(id) return BOOKS[tonumber(id)] end,
     put = function() end,
+    all_books = function() return BOOKS end,
+    book_count = function() return #BOOKS end,
 }
 package.loaded["lib.cache_map"] = {
     load = function() return { books = { ["1"] = { path = "/x", pinned = true } } } end,
@@ -223,10 +228,21 @@ paint(sheet, "filter sheet")
 ok(sheet.panel and sheet.panel.y > 0, "filter sheet is not anchored to the bottom")
 ok(sheet.panel.y + sheet.panel.h == env.Screen.getHeight(), "filter sheet misses the bottom edge")
 local sheet_text = collected_text(sheet)
-ok(sheet_text["EPUB"] and sheet_text["PDF"],
+ok(sheet_text["Library"], "filter sheet missing Library section")
+ok(sheet_text["Classics"], "filter sheet missing Classics library chip")
+ok(sheet_text["Shelf"], "filter sheet missing Shelf section")
+ok(sheet_text["Unshelved"], "filter sheet missing Unshelved chip")
+ok(sheet_text["Favorites"], "filter sheet missing Favorites chip")
+ok(not sheet_text["Goodreads"], "filter sheet leaked Goodreads ratings")
+ok(not sheet_text["Match score"], "filter sheet leaked metadata match")
+sheet.scroll = sheet._max_scroll or 0
+sheet:rebuild()
+paint(sheet, "filter sheet scrolled")
+local scrolled = collected_text(sheet)
+ok(scrolled["EPUB"] and scrolled["PDF"],
     "filter format labels are not uppercase")
-ok(not sheet_text["CBZ"], "filter listed CBZ though no book has it")
-ok(not sheet_text["epub"] and not sheet_text["pdf"],
+ok(not scrolled["CBZ"], "filter listed CBZ though no book has it")
+ok(not scrolled["epub"] and not scrolled["pdf"],
     "filter format labels still show lowercase")
 local sort_ids = {}
 for i = 1, #Filter.sorts() do

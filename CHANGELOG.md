@@ -14,7 +14,7 @@ First Hansel release. Plugin files live at the repo root.
 - Test connection from Settings.
 - Comfortable / Compact / Dense grid (3×3 / 4×4 / 5×4).
 - Hansel lockup (`hansel.svg`) on the GitHub README and the library drawer.
-- Drawer lists Grimmory **Libraries** and **Shelves**. Categories is labeled **Genres**. Filter sheet can scope to a library.
+- Drawer lists Grimmory **Libraries** and **Shelves**. Categories is labeled **Genres**. Filter sheet has Library (Classics / Library) and Shelf (Unshelved, Favorites, …) chips. No Goodreads / personal rating / metadata-match.
 - Shelf list includes **Unshelved** above Favorites (local filter - Grimmory has no `unshelved` facet).
 - Library/shelf/magic rows use Grimmory Lucide icons (heart, book-open, inbox, …). Custom SVG icons are cached from `/api/v1/icons/{name}/content`.
 

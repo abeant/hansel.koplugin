@@ -253,7 +253,8 @@ function Drawer:build(draw)
     local cursor = header_bottom
     local function put(ih, fn)
         local iy = cursor - scroll
-        if iy + ih > header_bottom and iy < h then
+        -- Skip rows that would blit past the panel. Scroll covers the rest.
+        if iy + ih > header_bottom and iy >= 0 and iy + ih <= h then
             fn(iy)
         end
         cursor = cursor + ih
