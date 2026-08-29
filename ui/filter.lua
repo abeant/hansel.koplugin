@@ -264,7 +264,12 @@ function Filter.libraries()
             end
         end
     end
-    table.sort(list, function(a, b) return a.name < b.name end)
+    table.sort(list, function(a, b)
+        local an = string.lower(tostring(a.name or ""))
+        local bn = string.lower(tostring(b.name or ""))
+        if an ~= bn then return an < bn end
+        return tostring(a.id or "") < tostring(b.id or "")
+    end)
     return list
 end
 

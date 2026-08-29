@@ -136,7 +136,7 @@ function Drawer:_rows()
             action = function() if home then home:set_view("on_device") end end,
         },
         {
-            icon = "folder", label = _("Genres"), count = ncount("categories"),
+            icon = "shapes", label = _("Genres"), count = ncount("categories"),
             on = view == "categories" and not (home and home.feed_url),
             action = function() if home then home:set_view("categories") end end,
         },

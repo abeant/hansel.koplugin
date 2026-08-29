@@ -93,6 +93,14 @@ local function urlencode(s)
     return s
 end
 
+-- Grimmory's library API returns creation order. Sidebar default is name A-Z.
+local function title_asc(a, b)
+    local an = string.lower(tostring(a.title or a.name or ""))
+    local bn = string.lower(tostring(b.title or b.name or ""))
+    if an ~= bn then return an < bn end
+    return tostring(a.id or "") < tostring(b.id or "")
+end
+
 local FACET_KEY = {
     categories = "genre",
     tags = "tag",
@@ -231,7 +239,7 @@ local function libraries_list()
         end
     end
     if #items == 0 then return nil end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     apply_icons(items, true)
     return { items = items }
 end
@@ -259,7 +267,7 @@ local function shelves_list()
         end
     end
     if #items == 0 then return nil end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     apply_icons(items, true)
     return { items = items }
 end
@@ -288,7 +296,7 @@ local function harvest_libraries()
         }
     end
     if #items == 0 then return nil end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     return { items = items }
 end
 
@@ -309,7 +317,7 @@ local function magic_list()
             }
         end
     end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     apply_icons(items, true)
     return { items = items }
 end
@@ -345,7 +353,7 @@ local function facet_list(kind)
     end
     local items = items_from_facet_group(picked, kind)
     if #items == 0 then return nil end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     return { items = items }
 end
 
@@ -388,7 +396,7 @@ local function filter_options_list(kind)
         end
     end
     if #items == 0 then return nil end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     return { items = items }
 end
 
@@ -447,7 +455,7 @@ local function harvest_from_catalog(kind)
         }
     end
     if #items == 0 then return nil end
-    table.sort(items, function(a, b) return a.title < b.title end)
+    table.sort(items, title_asc)
     if kind == "shelves" then apply_icons(items, false) end
     return { items = items }
 end
