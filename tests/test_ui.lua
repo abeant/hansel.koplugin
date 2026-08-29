@@ -533,8 +533,8 @@ end
 local Icon = require("ui.icon")
 local names = { "menu", "filter", "grid", "left", "right", "up", "down", "close", "check",
                 "dot", "pin", "more", "book", "layers", "person", "home", "star", "tray",
-                "spark", "gear", "hash", "folder", "library", "tag", "sliders", "search",
-                "heart", "book-open" }
+                "spark", "gear", "hash", "folder", "shapes", "library", "tag", "sliders",
+                "search", "heart", "book-open" }
 for _, name in ipairs(names) do
     ok(Icon.has(name), "missing icon " .. name)
     local before = env.bb.calls
@@ -544,6 +544,8 @@ end
 ok(Icon.from_grimmory("heart", "LUCIDE", "book") == "heart", "lucide heart maps")
 ok(Icon.from_grimmory("book-open", "LUCIDE", "book") == "book-open", "lucide book-open maps")
 ok(Icon.from_grimmory("inbox", "LUCIDE", "book") == "tray", "lucide inbox maps to tray")
+ok(Icon.from_grimmory("shapes", "LUCIDE", "folder") == "shapes", "lucide shapes maps")
+ok(Icon.from_grimmory("genres", "LUCIDE", "folder") == "shapes", "genres uses shapes not folder")
 ok(Icon.from_grimmory("dragon-mark", "CUSTOM_SVG", "book") == "book",
     "custom svg falls back to a paint-able shape")
 

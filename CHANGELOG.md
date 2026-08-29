@@ -17,6 +17,7 @@ First Hansel release. Plugin files live at the repo root.
 - Drawer lists Grimmory **Libraries** and **Shelves**. Categories is labeled **Genres**. Filter sheet has Library (Classics / Library) and Shelf (Unshelved, Favorites, …) chips. No Goodreads / personal rating / metadata-match.
 - Shelf list includes **Unshelved** above Favorites (local filter - Grimmory has no `unshelved` facet).
 - Library/shelf/magic rows use Grimmory Lucide icons (heart, book-open, inbox, …). Custom SVG icons are cached from `/api/v1/icons/{name}/content`.
+- Libraries list A–Z by name (Grimmory’s API is creation order). Genres uses Lucide `shapes`, not a folder.
 
 ### Fixed
 
