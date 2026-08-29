@@ -139,11 +139,22 @@ local function parse_pref(raw, fallback)
     return { field = field, order = order }
 end
 
+-- Do not go through Session.request: a timeout on this fat endpoint used to
+-- mark Grimmory offline and skip shelves + magic for 20s.
 local function load_sort_prefs()
-    if _sort_loaded or not can_probe() then return end
+    if _sort_loaded then return end
     _sort_loaded = true
-    local ok, _, body = rest_get("/api/v1/users/me")
-    local user = ok and decode_json(body) or nil
+    local origin = Settings.server_url()
+    local ok_s, Session = pcall(require, "lib.session")
+    local token = ok_s and Session.peek_token and Session.peek_token()
+    if not origin or not token then return end
+    local ok, _, body = Http.get(origin .. "/api/v1/users/me", {
+        headers = { Authorization = "Bearer " .. token },
+        timeout_block = NAV_BLOCK,
+        timeout_total = NAV_TOTAL,
+    })
+    if not ok then return end
+    local user = decode_json(body)
     local settings = type(user) == "table" and (user.userSettings or user.user_settings) or {}
     local fallback = { field = "id", order = "asc" }
     _sort.libraries = parse_pref(settings.sidebarLibrarySorting, fallback)
@@ -178,6 +189,30 @@ local function cmp_pref(pref)
         end
         return tostring(a.id or "") < tostring(b.id or "")
     end
+end
+
+local function resort_cached()
+    local function reorder(kind, pref, pin_unshelved)
+        local rec = _cache[kind]
+        if type(rec) ~= "table" or type(rec.items) ~= "table" or #rec.items == 0 then
+            return
+        end
+        local pinned, rest = {}, {}
+        for i = 1, #rec.items do
+            local item = rec.items[i]
+            if pin_unshelved and (item.special == "unshelved" or item.id == "unshelved") then
+                pinned[#pinned + 1] = item
+            else
+                rest[#rest + 1] = item
+            end
+        end
+        table.sort(rest, cmp_pref(pref))
+        rec.items = pinned
+        for i = 1, #rest do rec.items[#rec.items + 1] = rest[i] end
+    end
+    reorder("libraries", _sort.libraries, false)
+    reorder("shelves", _sort.shelves, true)
+    reorder("magic", _sort.magic, false)
 end
 
 local function items_from_facet_group(group, kind)
@@ -294,7 +329,6 @@ local function libraries_list()
         end
     end
     if #items == 0 then return nil end
-    load_sort_prefs()
     table.sort(items, cmp_pref(_sort.libraries))
     apply_icons(items, true)
     return { items = items }
@@ -323,7 +357,6 @@ local function shelves_list()
         end
     end
     if #items == 0 then return nil end
-    load_sort_prefs()
     table.sort(items, cmp_pref(_sort.shelves))
     apply_icons(items, true)
     return { items = items }
@@ -361,7 +394,7 @@ local function magic_list()
     if not can_probe() then return nil end
     local ok, _, body = rest_get("/api/magic-shelves")
     if not ok then return nil end
-    local rows = decode_json(body)
+    local rows = rows_from(body) or decode_json(body)
     if type(rows) ~= "table" then return nil end
     local items = {}
     for _, row in ipairs(rows) do
@@ -375,7 +408,7 @@ local function magic_list()
             }
         end
     end
-    load_sort_prefs()
+    if #items == 0 then return nil end
     table.sort(items, cmp_pref(_sort.magic))
     apply_icons(items, true)
     return { items = items }
@@ -522,6 +555,11 @@ end
 function Nav.fetch(kind, opts)
     opts = opts or {}
     ensure_cache_identity()
+    if kind == "prefs" then
+        load_sort_prefs()
+        resort_cached()
+        return { items = {} }
+    end
     local cached = _cache[kind]
     if not opts.force_rest and cached and cached.items and #cached.items > 0
             and _fetched_at > 0 and (os.time() - _fetched_at) < NAV_TTL then
@@ -621,7 +659,7 @@ function Nav.harvest()
     _fetched_at = os.time()
 end
 
-local REST_ORDER = { "libraries", "categories", "tags", "series", "authors", "shelves", "magic" }
+local REST_ORDER = { "libraries", "categories", "tags", "series", "authors", "shelves", "magic", "prefs" }
 
 function Nav.step_rest()
     ensure_cache_identity()
