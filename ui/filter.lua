@@ -98,6 +98,7 @@ local function dest_id(home)
     home = home or Filter._home
     if home then
         if home.feed_url then return "f:" .. tostring(home.feed_url) end
+        if home.library_id then return "l:" .. tostring(home.library_id) end
         return "v:" .. tostring(home.view or Settings.get("last_view") or "all")
     end
     return "v:" .. tostring(Settings.get("last_view") or "all")
@@ -114,6 +115,7 @@ local function defaults()
         device = "all",
         status = default_status(),
         formats = {},
+        libraries = {},
         sort_key = "added",
         sort_dir = "desc",
     }
@@ -123,6 +125,15 @@ local function normalize_status(status)
     if type(status) ~= "table" then return {} end
     if next(status) == nil or all_selected(status, STATUS_IDS) then return {} end
     return copy(status)
+end
+
+local function normalize_libraries(libraries)
+    if type(libraries) ~= "table" or next(libraries) == nil then return {} end
+    local out = {}
+    for key, on in pairs(libraries) do
+        if on then out[tostring(key)] = true end
+    end
+    return out
 end
 
 local function normalize_formats(formats)
@@ -148,6 +159,7 @@ local function normalize(raw)
         device = raw.device or "all",
         status = normalize_status(raw.status),
         formats = normalize_formats(raw.formats),
+        libraries = normalize_libraries(raw.libraries),
         sort_key = raw.sort_key or "added",
         sort_dir = raw.sort_dir or "desc",
     }
@@ -158,6 +170,7 @@ local function legacy_global()
         device = Settings.get("last_filter") or "all",
         status = normalize_status(Settings.get("filter_status")),
         formats = normalize_formats(Settings.get("filter_formats")),
+        libraries = {},
         sort_key = Settings.get("sort_key") or "added",
         sort_dir = Settings.get("sort_dir") or "desc",
     }
@@ -216,7 +229,35 @@ function Filter.active(state)
     local st = state or Filter.state()
     if st.device ~= "all" then return true end
     if is_restricted(st.status, STATUS_IDS) then return true end
+    if type(st.libraries) == "table" and next(st.libraries) then return true end
     return is_restricted(st.formats, Filter.formats())
+end
+
+--- Grimmory libraries present in the catalog / nav cache.
+function Filter.libraries()
+    local seen, list = {}, {}
+    local ok_c, Catalog = pcall(require, "lib.catalog")
+    if ok_c and Catalog and Catalog.all_books then
+        for _, book in ipairs(Catalog.all_books() or {}) do
+            local id = book.library_id and tostring(book.library_id)
+            if id and not seen[id] then
+                seen[id] = true
+                list[#list + 1] = { id = id, name = book.library_name or id }
+            end
+        end
+    end
+    local ok_n, Nav = pcall(require, "lib.nav")
+    if ok_n and Nav and Nav.get then
+        for _, item in ipairs((Nav.get("libraries").items or {})) do
+            local id = item.id and tostring(item.id)
+            if id and not seen[id] then
+                seen[id] = true
+                list[#list + 1] = { id = id, name = item.title or id }
+            end
+        end
+    end
+    table.sort(list, function(a, b) return a.name < b.name end)
+    return list
 end
 
 function Filter.format_label(ext)
@@ -299,6 +340,11 @@ local function keeps(book, st)
     if is_restricted(st.formats, Filter.formats()) then
         local ext = book.file_type and string.lower(book.file_type) or ""
         if not st.formats[ext] then return false end
+    end
+
+    if type(st.libraries) == "table" and next(st.libraries) then
+        local id = book.library_id and tostring(book.library_id)
+        if not id or not st.libraries[id] then return false end
     end
     return true
 end
@@ -445,6 +491,29 @@ function Sheet:_layout(draw, top)
         end
         local ch = S(10) * 2 + draw:label_height(Theme.mono("small")) + S(5) * 2
         put(ch, function(iy) Parts.chips(draw, 0, iy, w, chips) end)
+    end
+
+    local libs = Filter.libraries()
+    if #libs >= 2 and not (self.home and self.home.library_id) then
+        put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Library")) end)
+        do
+            local chips = {}
+            local keys = {}
+            for i = 1, #libs do keys[i] = libs[i].id end
+            for i = 1, #libs do
+                local lib = libs[i]
+                chips[#chips + 1] = {
+                    label = lib.name,
+                    on = st.libraries[lib.id] == true,
+                    callback = function()
+                        toggle_flag(st.libraries, lib.id, keys)
+                        self:rebuild("ui")
+                    end,
+                }
+            end
+            local ch = S(10) * 2 + draw:label_height(Theme.mono("small")) + S(5) * 2
+            put(ch, function(iy) Parts.chips(draw, 0, iy, w, chips) end)
+        end
     end
 
     put(sec_h, function(iy) Parts.section(draw, 0, iy, w, _("Status")) end)

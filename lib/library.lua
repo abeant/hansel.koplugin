@@ -100,6 +100,9 @@ local function rest_book(raw)
         genres = md.genres or raw.genres,
         moods = md.moods or raw.moods,
         shelves = raw.shelves or md.shelves,
+        library_id = raw.libraryId and tostring(raw.libraryId) or nil,
+        library_name = raw.libraryName,
+        file_path = primary.filePath or raw.filePath,
         series = md.seriesName or md.series,
         series_index = md.seriesNumber or md.seriesIndex or raw.seriesIndex,
         added_on = raw.addedOn or md.addedOn,
@@ -158,6 +161,7 @@ local FACET_ALIASES = {
     tags = "tag",
     authors = "author",
     shelves = "shelf",
+    libraries = "library",
 }
 
 local FACET_FIELDS = {
@@ -166,6 +170,7 @@ local FACET_FIELDS = {
     series = { "series" },
     author = { "authors" },
     shelf = { "shelves" },
+    library = { "library_id", "library_name" },
 }
 
 --- Grimmory facet URLs: /api/v1/books/page?facet=genre:Horror

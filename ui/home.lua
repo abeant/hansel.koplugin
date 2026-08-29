@@ -38,7 +38,7 @@ local VIEW_TITLE = {
     all = _("All Books"),
     dashboard = _("Dashboard"),
     on_device = _("On this device"),
-    categories = _("Categories"),
+    categories = _("Genres"),
     tags = _("Tags"),
     series = _("Series"),
     authors = _("Authors"),
@@ -367,6 +367,7 @@ function Home:set_view(view)
     self.view = view
     self.view_title = VIEW_TITLE[view]
     self.feed_url = nil
+    self.library_id = nil
     self.nav_items = nil
     self._nav_fetched = nil
     self._feed_fetched = nil
@@ -377,7 +378,27 @@ function Home:set_view(view)
     self:reload()
 end
 
+function Home:open_library(id, title)
+    id = id and tostring(id) or nil
+    if not id then return end
+    local origin = Settings.server_url()
+    self.view = "all"
+    self.library_id = id
+    self.view_title = title or _("Library")
+    self.feed_url = origin
+        and (origin .. "/api/v1/books/page?facet=library:" .. id)
+        or nil
+    self.nav_items = nil
+    self._nav_fetched = nil
+    self._feed_fetched = nil
+    self.page = 1
+    self.trail = { { title = self.view_title, library_id = id } }
+    Settings.set("last_page", 1)
+    self:reload()
+end
+
 function Home:open_feed(url, title, from_book)
+    self.library_id = nil
     self.trail = self.trail or {}
     if #self.trail == 0 then
         self.trail[1] = { title = VIEW_TITLE[self.view] or self.view, view = self.view }
@@ -407,16 +428,22 @@ function Home:go_crumb(index)
         return
     end
     self.page = 1
+    if crumb.library_id then
+        self:open_library(crumb.library_id, crumb.title)
+        return
+    end
     if crumb.href then
         self.feed_url = crumb.href
         self.view_title = crumb.title
         self.nav_items = nil
+        self.library_id = nil
         self:reload()
         return
     end
     self.view = crumb.view or "all"
     self.view_title = crumb.title or VIEW_TITLE[self.view]
     self.feed_url = nil
+    self.library_id = nil
     self.nav_items = nil
     self:reload()
 end
@@ -521,6 +548,11 @@ function Home:reload(force_network)
             for k, v in pairs(st) do with_feed[k] = v end
             with_feed.feed_url = self.feed_url
             st = with_feed
+        elseif self.library_id then
+            local with_lib = {}
+            for k, v in pairs(st) do with_lib[k] = v end
+            with_lib.libraries = { [tostring(self.library_id)] = true }
+            st = with_lib
         end
         self.filter_state = st
         local nav_view = (self.view == "categories" or self.view == "tags"

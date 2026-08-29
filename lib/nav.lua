@@ -98,6 +98,7 @@ local FACET_KEY = {
     series = "series",
     authors = "author",
     shelves = "shelf",
+    libraries = "library",
 }
 
 local function facet_href(kind, name)
@@ -129,6 +130,92 @@ local function items_from_facet_group(group, kind)
         end
     end
     return items
+end
+
+local function rows_from(body)
+    local rows = decode_json(body)
+    if type(rows) ~= "table" then return nil end
+    if rows[1] ~= nil then return rows end
+    if type(rows.content) == "table" then return rows.content end
+    return nil
+end
+
+local function libraries_list()
+    if not can_probe() then return nil end
+    local ok, _, body = rest_get("/api/v1/libraries")
+    if not ok then return nil end
+    local rows = rows_from(body)
+    if not rows then return nil end
+    local items = {}
+    for i = 1, #rows do
+        local row = rows[i]
+        local id = row.id or row.libraryId
+        local name = row.name or row.title
+        if id and name and name ~= "" then
+            items[#items + 1] = {
+                id = tostring(id),
+                title = name,
+                count = tonumber(row.bookCount or row.count),
+                href = facet_href("libraries", tostring(id)),
+            }
+        end
+    end
+    if #items == 0 then return nil end
+    table.sort(items, function(a, b) return a.title < b.title end)
+    return { items = items }
+end
+
+local function shelves_list()
+    if not can_probe() then return nil end
+    local ok, _, body = rest_get("/api/v1/shelves")
+    if not ok then return nil end
+    local rows = rows_from(body)
+    if not rows then return nil end
+    local items = {}
+    for i = 1, #rows do
+        local row = rows[i]
+        local id = row.id
+        local name = row.name or row.title
+        if id and name and name ~= "" then
+            items[#items + 1] = {
+                id = tostring(id),
+                title = name,
+                count = tonumber(row.bookCount or row.count),
+                href = facet_href("shelves", tostring(id)),
+            }
+        end
+    end
+    if #items == 0 then return nil end
+    table.sort(items, function(a, b) return a.title < b.title end)
+    return { items = items }
+end
+
+local function harvest_libraries()
+    if not Catalog.all_books then return nil end
+    local counts = {}
+    for _, book in ipairs(Catalog.all_books()) do
+        local id = book.library_id and tostring(book.library_id)
+        if id then
+            local rec = counts[id] or { count = 0, title = book.library_name or id }
+            rec.count = rec.count + 1
+            if book.library_name and book.library_name ~= "" then
+                rec.title = book.library_name
+            end
+            counts[id] = rec
+        end
+    end
+    local items = {}
+    for id, rec in pairs(counts) do
+        items[#items + 1] = {
+            id = id,
+            title = rec.title,
+            count = rec.count,
+            href = facet_href("libraries", id),
+        }
+    end
+    if #items == 0 then return nil end
+    table.sort(items, function(a, b) return a.title < b.title end)
+    return { items = items }
 end
 
 local function magic_list()
@@ -295,12 +382,29 @@ function Nav.fetch(kind, opts)
             and _fetched_at > 0 and (os.time() - _fetched_at) < NAV_TTL then
         return cached
     end
-    local saved = FACET_MATCH[kind] and harvest_from_catalog(kind)
-    if saved then
-        _cache[kind] = saved
+    if kind == "libraries" then
+        local saved = harvest_libraries()
+        if saved then _cache[kind] = saved end
+    else
+        local saved = FACET_MATCH[kind] and harvest_from_catalog(kind)
+        if saved then
+            _cache[kind] = saved
+        end
     end
     if Settings.has_tier2() and can_probe() then
-        if kind == "magic" then
+        if kind == "libraries" then
+            local from_rest = libraries_list()
+            if from_rest then
+                _cache[kind] = from_rest
+                return from_rest
+            end
+        elseif kind == "shelves" then
+            local from_rest = shelves_list()
+            if from_rest then
+                _cache[kind] = from_rest
+                return from_rest
+            end
+        elseif kind == "magic" then
             local from_rest = magic_list()
             if from_rest then
                 _cache[kind] = from_rest
@@ -361,10 +465,12 @@ function Nav.harvest()
         local saved = harvest_from_catalog(kind)
         if saved then _cache[kind] = saved end
     end
+    local libs = harvest_libraries()
+    if libs then _cache.libraries = libs end
     _fetched_at = os.time()
 end
 
-local REST_ORDER = { "categories", "tags", "series", "authors", "shelves", "magic" }
+local REST_ORDER = { "libraries", "categories", "tags", "series", "authors", "shelves", "magic" }
 
 function Nav.step_rest()
     ensure_cache_identity()
