@@ -243,6 +243,18 @@ end
 
 --- Grimmory libraries present in the catalog / nav cache.
 function Filter.libraries()
+    local ok_n, Nav = pcall(require, "lib.nav")
+    if ok_n and Nav and Nav.get then
+        local nav = Nav.get("libraries").items or {}
+        if #nav > 0 then
+            local list = {}
+            for i = 1, #nav do
+                local item = nav[i]
+                list[i] = { id = tostring(item.id), name = item.title or item.id }
+            end
+            return list
+        end
+    end
     local seen, list = {}, {}
     local ok_c, Catalog = pcall(require, "lib.catalog")
     if ok_c and Catalog and Catalog.all_books then
@@ -254,21 +266,8 @@ function Filter.libraries()
             end
         end
     end
-    local ok_n, Nav = pcall(require, "lib.nav")
-    if ok_n and Nav and Nav.get then
-        for _, item in ipairs((Nav.get("libraries").items or {})) do
-            local id = item.id and tostring(item.id)
-            if id and not seen[id] then
-                seen[id] = true
-                list[#list + 1] = { id = id, name = item.title or id }
-            end
-        end
-    end
     table.sort(list, function(a, b)
-        local an = string.lower(tostring(a.name or ""))
-        local bn = string.lower(tostring(b.name or ""))
-        if an ~= bn then return an < bn end
-        return tostring(a.id or "") < tostring(b.id or "")
+        return (tonumber(a.id) or 0) < (tonumber(b.id) or 0)
     end)
     return list
 end
