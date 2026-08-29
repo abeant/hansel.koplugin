@@ -196,6 +196,8 @@ home:rebuild()
 -- ---------- drawer ----------
 
 local Drawer = require("ui.drawer")
+local Nav = require("lib.nav")
+Nav.harvest()
 local drawer = Drawer:new{ home = home }
 paint(drawer, "drawer")
 ok(drawer.panel and drawer.panel.w < env.Screen.getWidth(), "drawer is not a panel")
@@ -204,6 +206,8 @@ ok(drawer_text["On this device"], "drawer missing On this device row")
 ok(drawer_text["All Books"], "drawer missing All Books row")
 ok(drawer_text["Genres"], "drawer missing Genres row")
 ok(not drawer_text["Categories"], "drawer still says Categories")
+ok(drawer_text["Unshelved"], "drawer missing Unshelved above Favorites")
+ok(drawer_text["Shelves"], "drawer missing Shelves group")
 UIManager:close(drawer)
 tap_everything(function() return Drawer:new{ home = home } end, "drawer")
 
@@ -513,12 +517,18 @@ end
 local Icon = require("ui.icon")
 local names = { "menu", "filter", "grid", "left", "right", "up", "down", "close", "check",
                 "dot", "pin", "more", "book", "layers", "person", "home", "star", "tray",
-                "spark", "gear", "hash", "folder", "library", "tag", "sliders", "search" }
+                "spark", "gear", "hash", "folder", "library", "tag", "sliders", "search",
+                "heart", "book-open" }
 for _, name in ipairs(names) do
     ok(Icon.has(name), "missing icon " .. name)
     local before = env.bb.calls
     Icon.paint(env.bb, name, 10, 10, 30, "black")
     ok(env.bb.calls > before, "icon " .. name .. " drew nothing")
 end
+ok(Icon.from_grimmory("heart", "LUCIDE", "book") == "heart", "lucide heart maps")
+ok(Icon.from_grimmory("book-open", "LUCIDE", "book") == "book-open", "lucide book-open maps")
+ok(Icon.from_grimmory("inbox", "LUCIDE", "book") == "tray", "lucide inbox maps to tray")
+ok(Icon.from_grimmory("dragon-mark", "CUSTOM_SVG", "book") == "book",
+    "custom svg falls back to a paint-able shape")
 
 print("ui: " .. checks .. " ok")

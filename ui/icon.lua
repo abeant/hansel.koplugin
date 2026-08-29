@@ -43,7 +43,69 @@ local SHAPES = {
     sliders = { lines = {{4,7, 20,7}, {4,12, 20,12}, {4,17, 20,17}},
                 discs = {{8,7,2.2}, {16,12,2.2}, {11,17,2.2}} },
     search  = { rings = {{10,10,6.2}}, lines = {{14.8,14.8, 20.5,20.5}} },
+    heart   = { lines = {{12,20, 3,11, 3,7, 7,4, 10,4, 12,7, 14,4, 17,4, 21,7, 21,11, 12,20}} },
+    ["book-open"] = { lines = {{12,6, 4,9, 4,19, 12,16}, {12,6, 20,9, 20,19, 12,16}, {12,6, 12,16}} },
 }
+
+-- Grimmory libraries/shelves use Lucide names (and optional custom SVGs).
+local ALIAS = {
+    ["book-open"] = "book-open",
+    ["book-marked"] = "book",
+    bookmark = "pin",
+    ["book-copy"] = "book",
+    ["book-plus"] = "book",
+    ["book-text"] = "book",
+    heart = "heart",
+    ["heart-off"] = "heart",
+    star = "star",
+    sparkles = "spark",
+    sparkle = "spark",
+    tag = "tag",
+    tags = "tag",
+    library = "library",
+    inbox = "tray",
+    package = "tray",
+    ["package-open"] = "tray",
+    archive = "tray",
+    folder = "folder",
+    ["folder-open"] = "folder",
+    user = "person",
+    users = "person",
+    settings = "gear",
+    cog = "gear",
+    search = "search",
+    pin = "pin",
+    home = "home",
+    house = "home",
+    layers = "layers",
+    grid = "grid",
+    filter = "filter",
+    sliders = "sliders",
+    ["sliders-horizontal"] = "sliders",
+    ["notebook-pen"] = "book",
+    notebook = "book",
+    pen = "hash",
+    pencil = "hash",
+    hash = "hash",
+    more = "more",
+    menu = "menu",
+    book = "book",
+    spark = "spark",
+    tray = "tray",
+    person = "person",
+    gear = "gear",
+}
+
+function Icon.alias(name)
+    if type(name) ~= "string" or name == "" then return nil end
+    name = string.lower(name)
+    if SHAPES[name] then return name end
+    local mapped = ALIAS[name]
+    if mapped and SHAPES[mapped] then return mapped end
+    local compact = name:gsub("%-", "")
+    if SHAPES[compact] then return compact end
+    return nil
+end
 
 local function round(v)
     return math.floor(v + 0.5)
@@ -93,6 +155,7 @@ end
 
 --- Paint `name` into a size×size box whose top-left is (x, y).
 function Icon.paint(bb, name, x, y, size, color, thickness)
+    name = Icon.alias(name) or name
     local shape = SHAPES[name]
     if not shape then return end
     local k = size / 24
@@ -118,7 +181,18 @@ function Icon.paint(bb, name, x, y, size, color, thickness)
 end
 
 function Icon.has(name)
-    return SHAPES[name] ~= nil
+    return Icon.alias(name) ~= nil
+end
+
+--- Map a Grimmory library/shelf icon (Lucide name or custom SVG) to a
+--- shape we can paint. CUSTOM_SVG files are blitted separately; this is
+--- the fallback glyph (selected rows, missing file, unknown Lucide name).
+function Icon.from_grimmory(name, kind, fallback)
+    kind = string.upper(tostring(kind or "LUCIDE"))
+    if kind ~= "CUSTOM_SVG" then
+        return Icon.alias(name) or Icon.alias(fallback) or fallback or "library"
+    end
+    return Icon.alias(fallback) or fallback or "library"
 end
 
 return Icon

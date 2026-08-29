@@ -157,10 +157,13 @@ function Drawer:_rows()
         },
     }
 
+    local Icon = require("ui.icon")
     local library_items = {}
     for _, item in ipairs(Nav.get("libraries").items or {}) do
         library_items[#library_items + 1] = {
-            icon = "library", label = item.title,
+            icon = Icon.from_grimmory(item.icon, item.icon_type, "library"),
+            icon_file = item.icon_file,
+            label = item.title,
             count = item.count and tostring(item.count),
             on = home and home.library_id == tostring(item.id),
             action = function()
@@ -174,7 +177,9 @@ function Drawer:_rows()
     local shelf_items = {}
     for _, item in ipairs(Nav.get("shelves").items or {}) do
         shelf_items[#shelf_items + 1] = {
-            icon = "book", label = item.title,
+            icon = Icon.from_grimmory(item.icon, item.icon_type, "book"),
+            icon_file = item.icon_file,
+            label = item.title,
             count = item.count and tostring(item.count),
             on = title == item.title,
             action = function()
@@ -186,7 +191,9 @@ function Drawer:_rows()
     local magic_items = {}
     for _, item in ipairs(Nav.get("magic").items or {}) do
         magic_items[#magic_items + 1] = {
-            icon = "spark", label = item.title,
+            icon = Icon.from_grimmory(item.icon, item.icon_type, "spark"),
+            icon_file = item.icon_file,
+            label = item.title,
             count = item.count and tostring(item.count),
             on = title == item.title,
             action = function()
@@ -272,7 +279,7 @@ function Drawer:build(draw)
                     function()
                         self:onClose()
                         row.action()
-                    end)
+                    end, row.icon_file)
             end)
         end
     end

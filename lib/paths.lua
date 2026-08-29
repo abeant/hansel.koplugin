@@ -167,12 +167,17 @@ function Paths.migrate_into_library()
     return dest_dir, moved
 end
 
+function Paths.icons_dir()
+    return Paths.data_dir() .. "/icons"
+end
+
 function Paths.ensure_data_dirs()
     pcall(function()
         require("lib.migrate").all()
     end)
     mkdir_p(Paths.data_dir())
     mkdir_p(Paths.covers_dir())
+    mkdir_p(Paths.icons_dir())
 end
 
 function Paths.ensure(dir)
