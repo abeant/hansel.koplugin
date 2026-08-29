@@ -15,6 +15,9 @@ local refresh_reply = { true, 200, {
 local request_replies = {}
 
 package.loaded["lib.http"] = {
+    get = function()
+        return true, 200, "<feed xmlns='http://www.w3.org/2005/Atom'></feed>"
+    end,
     post_json = function(url)
         if url:find("/auth/refresh", 1, true) then
             calls.refresh = calls.refresh + 1
@@ -170,5 +173,16 @@ NetworkMgr.online = true
 eq(Session.try_unknown_token(), nil, "unknown refresh can fail")
 eq(Session.status().kind, "unknown", "failed unknown refresh does not set offline")
 NetworkMgr.online = false
+
+-- Test connection used to toast "signed in" without refreshing Settings.
+Session.reset()
+login_reply = { true, 200, {
+    accessToken = "access-test", refreshToken = "refresh-test", expires = 3600,
+} }
+package.loaded["lib.api"] = nil
+local API = require("lib.api")
+local tested = API.test_connection()
+ok(tested.tier2, "test connection logs into Grimmory")
+eq(Session.status().kind, "connected", "test connection updates session to connected")
 
 print("session: " .. checks .. " ok")

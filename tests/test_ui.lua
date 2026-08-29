@@ -85,7 +85,7 @@ package.loaded["ui.setup"] = {
     manual = function(cb) if cb then cb() end end,
     prompt_tier2 = function(cb) if cb then cb() end end,
     account = function() end,
-    test_now = function() end,
+    test_now = function(cb) if cb then cb({ tier2 = true }) end end,
     confirm_if_needed = function() end,
 }
 

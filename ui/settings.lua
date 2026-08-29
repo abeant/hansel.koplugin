@@ -86,6 +86,15 @@ function SettingsUI.auto_sync_opts(host)
     }, sync
 end
 
+function Panel:_test_connection()
+    require("ui.setup").test_now(function(result)
+        if not self._closed then self:rebuild("ui") end
+        if result and result.tier2 and self.home and self.home.reload then
+            self.home:reload(false)
+        end
+    end)
+end
+
 function Panel:build(draw)
     local w, h = Screen:getWidth(), Screen:getHeight()
     draw:fill(0, 0, w, h, Theme.paper)
@@ -115,7 +124,7 @@ function Panel:build(draw)
     y = y + Parts.row(draw, 0, y, w, _("Test connection"), {
         chevron = true,
         callback = function()
-            require("ui.setup").test_now()
+            self:_test_connection()
         end,
     })
     y = y + Parts.menu_separator(draw, 0, y, w)
