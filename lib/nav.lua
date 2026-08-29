@@ -34,6 +34,12 @@ local _fetched_at = 0
 local _filter_payload
 local _facet_payload
 local _rest_index = 0
+local _sort_loaded = false
+local _sort = {
+    libraries = { field = "id", order = "asc" },
+    shelves = { field = "id", order = "asc" },
+    magic = { field = "id", order = "asc" },
+}
 local NAV_TTL = 120
 local NAV_BLOCK = 2
 local NAV_TOTAL = 3
@@ -58,6 +64,12 @@ local function ensure_cache_identity()
         _filter_payload = nil
         _facet_payload = nil
         _rest_index = 0
+        _sort_loaded = false
+        _sort = {
+            libraries = { field = "id", order = "asc" },
+            shelves = { field = "id", order = "asc" },
+            magic = { field = "id", order = "asc" },
+        }
         local all = Settings.get("nav_places")
         local stored = type(all) == "table" and all[identity]
         _places = type(stored) == "table" and stored or {}
@@ -93,14 +105,6 @@ local function urlencode(s)
     return s
 end
 
--- Grimmory's library API returns creation order. Sidebar default is name A-Z.
-local function title_asc(a, b)
-    local an = string.lower(tostring(a.title or a.name or ""))
-    local bn = string.lower(tostring(b.title or b.name or ""))
-    if an ~= bn then return an < bn end
-    return tostring(a.id or "") < tostring(b.id or "")
-end
-
 local FACET_KEY = {
     categories = "genre",
     tags = "tag",
@@ -123,6 +127,57 @@ local function decode_json(blob)
     if not ok_j or not json or not json.decode then return nil end
     local s, r = pcall(json.decode, blob)
     return s and r or nil
+end
+
+local function parse_pref(raw, fallback)
+    fallback = fallback or { field = "id", order = "asc" }
+    if type(raw) ~= "table" then return fallback end
+    local field = string.lower(tostring(raw.field or ""))
+    local order = string.lower(tostring(raw.order or ""))
+    if field ~= "id" and field ~= "name" then field = fallback.field end
+    if order ~= "asc" and order ~= "desc" then order = fallback.order end
+    return { field = field, order = order }
+end
+
+local function load_sort_prefs()
+    if _sort_loaded or not can_probe() then return end
+    _sort_loaded = true
+    local ok, _, body = rest_get("/api/v1/users/me")
+    local user = ok and decode_json(body) or nil
+    local settings = type(user) == "table" and (user.userSettings or user.user_settings) or {}
+    local fallback = { field = "id", order = "asc" }
+    _sort.libraries = parse_pref(settings.sidebarLibrarySorting, fallback)
+    _sort.shelves = parse_pref(settings.sidebarShelfSorting, fallback)
+    _sort.magic = parse_pref(settings.sidebarMagicShelfSorting, fallback)
+end
+
+local function title_asc(a, b)
+    local an = string.lower(tostring(a.title or a.name or ""))
+    local bn = string.lower(tostring(b.title or b.name or ""))
+    if an ~= bn then return an < bn end
+    return tostring(a.id or "") < tostring(b.id or "")
+end
+
+local function cmp_pref(pref)
+    pref = pref or { field = "id", order = "asc" }
+    local desc = pref.order == "desc"
+    local by_name = pref.field == "name"
+    return function(a, b)
+        if by_name then
+            local an = string.lower(tostring(a.title or a.name or ""))
+            local bn = string.lower(tostring(b.title or b.name or ""))
+            if an ~= bn then
+                if desc then return an > bn end
+                return an < bn
+            end
+        end
+        local aid, bid = tonumber(a.id) or 0, tonumber(b.id) or 0
+        if aid ~= bid then
+            if desc then return aid > bid end
+            return aid < bid
+        end
+        return tostring(a.id or "") < tostring(b.id or "")
+    end
 end
 
 local function items_from_facet_group(group, kind)
@@ -239,7 +294,8 @@ local function libraries_list()
         end
     end
     if #items == 0 then return nil end
-    table.sort(items, title_asc)
+    load_sort_prefs()
+    table.sort(items, cmp_pref(_sort.libraries))
     apply_icons(items, true)
     return { items = items }
 end
@@ -267,7 +323,8 @@ local function shelves_list()
         end
     end
     if #items == 0 then return nil end
-    table.sort(items, title_asc)
+    load_sort_prefs()
+    table.sort(items, cmp_pref(_sort.shelves))
     apply_icons(items, true)
     return { items = items }
 end
@@ -296,7 +353,7 @@ local function harvest_libraries()
         }
     end
     if #items == 0 then return nil end
-    table.sort(items, title_asc)
+    table.sort(items, cmp_pref(_sort.libraries))
     return { items = items }
 end
 
@@ -310,6 +367,7 @@ local function magic_list()
     for _, row in ipairs(rows) do
         if row.id and row.name then
             items[#items + 1] = {
+                id = tostring(row.id),
                 title = row.name,
                 href = facet_href("shelves", "magic:" .. tostring(row.id)),
                 icon = row.icon,
@@ -317,7 +375,8 @@ local function magic_list()
             }
         end
     end
-    table.sort(items, title_asc)
+    load_sort_prefs()
+    table.sort(items, cmp_pref(_sort.magic))
     apply_icons(items, true)
     return { items = items }
 end

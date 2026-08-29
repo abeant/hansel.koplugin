@@ -27,6 +27,15 @@ package.loaded["lib.api"] = {
                 { id = 8, name = "Unread later", icon = "tag", iconType = "LUCIDE" },
             }
         end
+        if path == "/api/v1/users/me" then
+            return true, 200, {
+                userSettings = {
+                    sidebarLibrarySorting = { field = "id", order = "asc" },
+                    sidebarShelfSorting = { field = "id", order = "asc" },
+                    sidebarMagicShelfSorting = { field = "id", order = "asc" },
+                },
+            }
+        end
         if path == "/api/v1/libraries" then
             return true, 200, {
                 { id = 1, name = "Library", bookCount = 429, icon = "library", iconType = "LUCIDE" },
@@ -94,10 +103,10 @@ eq(type(dragons.icon_file) == "string", true, "custom svg is cached to a file")
 eq(magic.href:match("facet=shelf:magic%%3A8") ~= nil, true, "magic shelf uses REST facet")
 eq(magic.icon, "tag", "magic shelf keeps Grimmory lucide icon")
 eq(#libraries, 2, "libraries fetched over REST")
-eq(libraries[1].title, "Classics", "libraries sorted by name, not creation order")
-eq(libraries[2].title, "Library", "Library follows Classics alphabetically")
-eq(libraries[1].id, "4", "library id is the Grimmory id")
-eq(libraries[1].icon, "book-open", "Classics keeps Grimmory lucide icon")
+eq(libraries[1].title, "Library", "id 1 Library is first (creation date ascending)")
+eq(libraries[1].id, "1", "library id is the Grimmory id")
+eq(libraries[2].title, "Classics", "id 4 Classics follows Library")
+eq(libraries[2].icon, "book-open", "Classics keeps Grimmory lucide icon")
 
 Settings.set_t2_credentials("other", "secret")
 eq(#Nav.get("series").items, 0, "navigation memory cache is account scoped")
