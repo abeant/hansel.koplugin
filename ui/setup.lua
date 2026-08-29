@@ -32,13 +32,14 @@ function Setup.show_test_result(result)
     end
 end
 
-function Setup.test_now()
+function Setup.test_now(on_done)
     run_online(function()
         Trapper:wrap(function()
             Trapper:info(_("Testing connection…"))
             local result = API.test_connection()
             Trapper:clear()
             Setup.show_test_result(result)
+            if on_done then on_done(result) end
         end)
     end)
 end
