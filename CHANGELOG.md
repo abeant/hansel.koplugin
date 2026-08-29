@@ -13,6 +13,7 @@ First Hansel release. Plugin files live at the repo root.
 - Start with → hansel, and a **Show Hansel** gesture.
 - Test connection from Settings.
 - Comfortable / Compact / Dense grid (3×3 / 4×4 / 5×4).
+- Hansel lockup and mark (`assets/hansel-lockup.svg`, `hansel.svg`).
 
 ### Fixed
 
