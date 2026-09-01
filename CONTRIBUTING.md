@@ -23,7 +23,7 @@ luacheck --no-self _meta.lua main.lua lib ui
 - Keep user-facing strings as Hansel / Grimmory. Do not add Dork, lattice, or IR product language.
 - LICENSE stays AGPL-3.0.
 - Do not commit `.docs/`, personal library data, or invented screenshots.
-- Device screenshots go in `docs/screens/` (`home.png`, `drawer.png`, `detail.png`). See `scripts/shots.md`. Uncomment the README table after they exist.
+- Device screenshots go in `docs/screens/` and must use the public-domain Classics library. See `scripts/shots.md` for the complete shot list and privacy checklist.
 
 ## License
 
