@@ -474,8 +474,12 @@ end
 function Home:_sync_grimmory()
     if self._syncing or not Settings.can_browse() then return end
     local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_n and NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
-        return
+    if ok_n and NetworkMgr then
+        local available = NetworkMgr.isOnline and NetworkMgr:isOnline()
+        if not available and NetworkMgr.isWifiOn then
+            available = NetworkMgr:isWifiOn()
+        end
+        if not available then return end
     end
     self._syncing = true
     local function alive()
@@ -497,16 +501,31 @@ function Home:_sync_grimmory()
                     token = Session.try_unknown_token()
                 end)
             end
+            if not token and self._reload_after_sync and Session.ensure_token then
+                pcall(function()
+                    token = Session.ensure_token(false)
+                end)
+            end
             if not token then
                 logger.info("[hansel] Grimmory sync skipped",
                     Session.status and Session.status().kind)
                 self._syncing = false
+                if self._reload_after_sync and alive() then
+                    self._reload_after_sync = nil
+                    self:reload(false)
+                end
                 return
             end
         end
         UIManager:nextTick(function()
             if not alive() then self._syncing = false return end
-            local result = Library.fetch_page("all", self.page or 1, Settings.page_size())
+            local result
+            if self.feed_url and type(Library.fetch_feed) == "function" then
+                result = Library.fetch_feed(self.feed_url, self.page or 1,
+                    Settings.page_size(), { force = true })
+            else
+                result = Library.fetch_page("all", self.page or 1, Settings.page_size())
+            end
             logger.info("[hansel] Grimmory sync",
                 result and result.source or "none",
                 result and result.total or 0)
@@ -515,13 +534,91 @@ function Home:_sync_grimmory()
                 UIManager:nextTick(function()
                     self._syncing = false
                     if not alive() then return end
-                    if result and result.source == "network" then
+                    local reload_after = self._reload_after_sync
+                    self._reload_after_sync = nil
+                    if reload_after or (result and result.source == "network") then
                         self:reload(false)
                     end
                 end)
             end)
         end)
     end)
+end
+
+--- A reconnect can arrive while the previous sync is still finishing. Remember
+--- that the visible grid needs a reload either way: Session may already be back
+--- to connected while Home still carries the offline-only overlay.
+function Home:on_network_connected()
+    self._unknown_refresh = nil
+    -- A feed attempted while offline is recorded to avoid retrying on every
+    -- paint. Let the active library/shelf feed make one fresh request now.
+    self._feed_fetched = nil
+    self._reload_after_sync = true
+    -- A reconnect is often discovered from a tap that opens an overlay. KOReader
+    -- restores the pixels saved before that overlay when it closes, so a reload
+    -- performed underneath it can look as if it never happened. Reload once more
+    -- after the overlay closes to paint the active destination from fresh data.
+    self._reload_on_show = true
+    self:_sync_grimmory()
+end
+
+--- Android does not always deliver KOReader's NetworkConnected event when
+--- Wi-Fi is toggled outside KOReader, and isOnline() can retain the old result
+--- even after the radio has associated. Treat the next interaction/show as a
+--- fallback signal when either the route or Wi-Fi state is live. Rate-limit the
+--- fallback so a radio without a working route cannot stall every tap.
+function Home:_maybe_reconnect()
+    if self._closed or not self.unavailable then return end
+    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok_n or not NetworkMgr then return end
+    local online = NetworkMgr.isOnline and NetworkMgr:isOnline()
+    if not online and NetworkMgr.isWifiOn then
+        online = NetworkMgr:isWifiOn()
+    end
+    if not online then return end
+    local ok_s, Session = pcall(require, "lib.session")
+    local kind = ok_s and Session and Session.status and Session.status().kind
+    -- "connected" is intentional: another surface (most often the drawer)
+    -- may have recovered the Session after Home's early feed retry failed.
+    if kind == "offline" or kind == "server_error" or kind == "connected" then
+        local now = os.time()
+        if kind ~= "connected" and self._reconnect_attempted_at
+                and now - self._reconnect_attempted_at < 20 then
+            return
+        end
+        self._reconnect_attempted_at = now
+        self:on_network_connected()
+    end
+end
+
+function Home:onTap(arg, ges)
+    self:_maybe_reconnect()
+    return Base.onTap(self, arg, ges)
+end
+
+function Home:onShow()
+    Base.onShow(self)
+    self:_maybe_reconnect()
+    return true
+end
+
+--- KOReader restores an overlay's saved framebuffer without necessarily
+--- sending onShow to the full-screen widget underneath it. Overlays that can
+--- cover Home call this explicitly after closing so reconnect results become
+--- visible immediately.
+function Home:on_overlay_closed()
+    if not self._reload_on_show then return false end
+    self._reload_on_show = nil
+    if self.library_id then
+        -- Re-open the destination exactly as a drawer selection would. Besides
+        -- repainting, this clears the failed-feed stamp and schedules its
+        -- destination-specific refresh.
+        self:open_library(self.library_id, self.view_title)
+    else
+        self._feed_fetched = nil
+        self:reload(false)
+    end
+    return true
 end
 
 function Home:reload(force_network)

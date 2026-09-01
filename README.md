@@ -1,68 +1,119 @@
-<p>
-  <img src="hansel.svg" alt="Hansel" width="480">
+<p align="center">
+  <img src="hansel.svg" width="420" alt="Hansel">
 </p>
 
-# Hansel
+<p align="center"><strong>Your Grimmory library is the KOReader home screen.</strong></p>
 
-[![KOReader 2024.12+](https://img.shields.io/badge/KOReader-2024.12%2B-222)](https://koreader.rocks/)
-[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
-[![Lua](https://img.shields.io/badge/Lua-5.1-blue)](https://www.lua.org/)
-[![Grimmory](https://img.shields.io/badge/Grimmory-library-555)](https://grimmory.org)
+<p align="center">
+  <a href="https://github.com/abeant/hansel.koplugin/releases/latest"><img src="https://img.shields.io/github/v/release/abeant/hansel.koplugin?style=flat-square&color=2f6fda&label=release" alt="Latest release"></a>
+  <a href="https://koreader.rocks/"><img src="https://img.shields.io/badge/KOReader-2024.12%2B-222?style=flat-square" alt="KOReader 2024.12 or newer"></a>
+  <a href="https://grimmory.org/"><img src="https://img.shields.io/badge/Grimmory-library-555?style=flat-square" alt="Grimmory"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0-2f6fda?style=flat-square" alt="AGPL-3.0 licence"></a>
+</p>
 
-KOReader starts in your Grimmory library.
+OPDS treats Grimmory as a catalog you visit. Download a book, leave the catalog, hunt for the file in File Manager. Hansel treats Grimmory as the library itself.
 
-You have a device with space. You would rather not live in the vendor reader. Install [KOReader](https://koreader.rocks/), sign Hansel into [Grimmory](https://grimmory.org), tap a cover. Downloads stay on the device. You do not keep a second file tree.
+Sign in once. Browse every cover. Open a book, download it, or leave it on the server. The reader holds a cache. The collection stays where you already keep it.
 
-<!-- screenshots: drop portrait E-Ink PNGs in docs/screens/ then uncomment
-| Cover grid | Library drawer | Book detail |
-| :---: | :---: | :---: |
-| <img src="docs/screens/home.png" width="240" alt="Cover grid"> | <img src="docs/screens/drawer.png" width="240" alt="Library drawer"> | <img src="docs/screens/detail.png" width="240" alt="Book detail"> |
--->
-
-Requires KOReader 2024.12+. Works anywhere KOReader runs plugins (Android, Kindle, Kobo).
+<p align="center">
+  <img src="docs/screens/home.png" width="30%" alt="Classics cover grid in Hansel">
+  <img src="docs/screens/drawer.png" width="30%" alt="Hansel drawer with Grimmory libraries and shelves">
+  <img src="docs/screens/detail.png" width="30%" alt="The War of the Worlds in Hansel">
+</p>
+<p align="center"><sub>Classics library on KOReader. Public-domain covers only.</sub></p>
 
 ## Install
 
-Unzip `hansel.koplugin.zip` into KOReader’s `plugins` folder (so you have `plugins/hansel.koplugin/_meta.lua`), restart, enable **Hansel** under Tools → Plugin management, then:
+1. Download [`hansel.koplugin.zip`](https://github.com/abeant/hansel.koplugin/releases/latest/download/hansel.koplugin.zip) from [Releases](https://github.com/abeant/hansel.koplugin/releases/latest).
+2. Unzip it into KOReader's `plugins` folder so you have `plugins/hansel.koplugin/_meta.lua`.
+3. Restart KOReader and enable **Hansel** under **Tools → Plugin management** if it is not already on.
+4. Open **Tools → Hansel → Show library**, enter your Grimmory URL, username, and password.
 
-**File Manager → Settings → Start with → hansel**
+To boot into the library, set **File Manager → Settings → Start with → Hansel**. From inside a book, assign **Show Hansel** in Gesture Manager.
 
-Restart once more. From a book, assign **Show Hansel** in Gesture Manager.
+Hansel runs anywhere KOReader loads plugins: Android, Kobo, Kindle, PocketBook, reMarkable.
 
-Also listed in the [KOReader App Store](https://github.com/omer-faruq/appstore.koplugin) once the repo is public (`koreader-plugin` topic).
+## What it does
 
-## Sign in
+- **The cover grid is the library.** Remote books, downloads, and pins share one screen.
+- **Your Grimmory structure comes with you.** Libraries, shelves, magic shelves, genres, tags, series, authors, and search.
+- **You choose what lives on the device.** Download from a book, pin titles that must stay, jump to **On this device**.
+- **Filters and sort stay out of the way.** On-device state, library, shelf, status, format. Sort by title, author, date added, published date, series, rating, size, or last opened.
+- **Offline is a mode, not a brick.** Cached covers and catalog pages keep working. **Hide unavailable books** can drop the view to downloads and pins until Grimmory is back.
+- **Progress can follow you.** Auto sync is off until you turn it on. It stands down if the official Grimmory plugin is already syncing.
+- **Built for e-ink.** Large targets, no animation theater, Comfortable / Compact / Dense grids.
 
-Server URL (`http://your-host:6060`), Grimmory username, password. After that you can turn on Auto sync so progress follows you.
+<p align="center">
+  <img src="docs/screens/filters.png" width="42%" alt="Hansel filters">
+  <img src="docs/screens/filters-sort.png" width="42%" alt="Hansel sort controls">
+</p>
 
-## Settings
+## How it compares
 
-- **Start with** — KOReader boots into the cover grid instead of File Manager.
-- **Auto sync** — after account login, progress follows you (percent + XPointer). Off until you turn it on. Stands down if the official Grimmory plugin is already syncing.
-- **Test connection** — ping Grimmory from Settings without leaving the screen.
-- **Hide unavailable books** — when this device can't reach Grimmory, only show books already on it.
-- **On this device** — drawer row for downloaded ∪ pinned. Settings has a separate storage panel under the same name.
-- **Pin** — keep a downloaded book when you would otherwise evict it.
-- **Grid density** — Comfortable (3×3), Compact (4×4), Dense (5×4).
-- **Prefetch next page covers** — fetch the next page of cover art while you read this one.
-- **Reset filters and sort** — clear On device / Status / Format / Library / Sort for the current shelf. Format chips are only the types in this library. Sort can use title, author, date added, published date, series, rating, file size, or last opened.
+| | [Grimmory plugin](https://github.com/grimmory-tools/grimmory.koplugin) | [KOReader OPDS](https://github.com/koreader/koreader/wiki/OPDS-support) | **Hansel** |
+|---|---|---|---|
+| Job | Sync books, shelves, and progress into KOReader | Browse any OPDS catalog | **Make Grimmory the KOReader library** |
+| Home screen | File Manager or KOReader's library | Catalog, then File Manager | **Your covers** |
+| Seeing the collection | What you chose to sync | One feed at a time | **The whole server, on demand** |
+| Keeping a book | Sync rules | Download, then find the file | **Download or pin from the book** |
+| Offline | Synced copies | Whatever you already downloaded | **Cached catalog, optional on-device-only view** |
 
-## Tools → Hansel
+Hansel is not trying to replace the official Grimmory plugin or OPDS. Use those when sync or generic catalogs are the point. Use Hansel when the library should be the first thing the device shows.
 
-- **Show library** — open the cover grid.
-- **Dashboard** — continue plus recently added.
-- **All Books** — the full library.
-- **Hansel settings** — server, account, sync, and library.
-- **Close Hansel** — return to File Manager.
+## Compatibility
 
-## Why this exists
+| Item | Detail |
+|---|---|
+| KOReader | 2024.12 or newer |
+| Server | A reachable [Grimmory](https://grimmory.org/) instance |
+| Devices | Any device that runs KOReader plugins |
+| Language | Lua 5.1 / LuaJIT |
+| Licence | [AGPL-3.0](LICENSE) |
 
-KOReader can already add Grimmory over OPDS. That is a catalog you visit, then a file you find again in File Manager. Hansel signs in and the cover grid is the library.
+Hansel is an independent project. It is not affiliated with or endorsed by Grimmory.
 
-Not the official Grimmory plugin. If [`grimmory.koplugin`](https://github.com/grimmory-tools/grimmory.koplugin) is already syncing, Hansel leaves that alone.
+## Questions
 
-## License
+**Do I have to store the whole library on the reader?**
+No. Browse everything. Download what you want. Pin what must not be evicted.
 
-[AGPL-3.0](LICENSE). Not affiliated with Grimmory. See [CHANGELOG](CHANGELOG.md) and [CONTRIBUTING](CONTRIBUTING.md).
+**What if Grimmory is down?**
+Hansel keeps the last catalog it saw. With **Hide unavailable books** on, the grid shows downloads and pins until the server returns.
 
-Designed with AI assistance. The plugin is reviewed and tested as a normal KOReader project.
+**Will it fight the official Grimmory plugin?**
+No. If that plugin is already handling progress sync, Hansel leaves it alone.
+
+**Can I still use File Manager?**
+Yes. Close Hansel, or do not set it as **Start with**.
+
+**Does it work without an account?**
+You need a Grimmory URL and login. There is no Hansel cloud and no extra account.
+
+## Screens
+
+<p align="center">
+  <img src="docs/screens/search.png" width="30%" alt="Search">
+  <img src="docs/screens/search-results.png" width="30%" alt="Search results for Frankenstein">
+  <img src="docs/screens/library-settings.png" width="30%" alt="Library settings">
+</p>
+<p align="center">
+  <img src="docs/screens/detail-actions.png" width="30%" alt="Read, Download, and Pin">
+</p>
+
+## Build from source
+
+No Grimmory server is required for tests:
+
+```sh
+./tests/run.sh
+luacheck --no-self _meta.lua main.lua lib ui
+./scripts/package.sh
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/architecture.md](docs/architecture.md), and [CHANGELOG.md](CHANGELOG.md).
+
+## Licence
+
+Hansel is available under the [GNU Affero General Public License v3.0](LICENSE).
+
+<p align="center"><sub>If Hansel makes your Grimmory library feel like it belongs on the device, a star helps other people find it.</sub></p>

@@ -33,6 +33,7 @@ for i = 1, 20 do
     }
 end
 
+local feed_fetches = 0
 package.loaded["lib.library"] = {
     page = function(_, page, size)
         local out = {}
@@ -40,6 +41,10 @@ package.loaded["lib.library"] = {
         return { books = out, total = 1284, offline = false }
     end,
     fetch_page = function(v, p, s) return package.loaded["lib.library"].page(v, p, s) end,
+    fetch_feed = function(_, p, s)
+        feed_fetches = feed_fetches + 1
+        return package.loaded["lib.library"].page("all", p, s)
+    end,
     query = function(_, page, size)
         return package.loaded["lib.library"].page("all", page, size)
     end,
@@ -172,6 +177,33 @@ paint(home, "home")
 ok(#home.books > 0, "home loaded no books")
 ok(home._draw ~= nil, "home has no draw list")
 
+-- A network event may restore Session while the open grid still carries the
+-- offline-only overlay. Reconnect must always rebuild the visible library,
+-- including when the catalog fetch itself returns a cached-shaped result.
+require("lib.session").mark_offline()
+home.unavailable = true
+home.hide_unavailable_active = true
+home.feed_url = "http://grimmory.local:6060/api/v1/books/page?facet=library:4"
+local stale_feed_attempt = { stale_offline_attempt = true }
+home._feed_fetched = stale_feed_attempt
+-- Android can report a connected Wi-Fi radio while KOReader's route-level
+-- isOnline cache still says false after a system-side toggle.
+env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = true
+home:_maybe_reconnect()
+UIManager:drain()
+ok(not home.unavailable, "reconnect leaves the grid unavailable")
+ok(not home.hide_unavailable_active, "reconnect leaves the on-device overlay visible")
+ok(feed_fetches > 0, "reconnect does not refresh the active feed")
+ok(home._feed_fetched ~= stale_feed_attempt,
+    "reconnect leaves the stale active-feed attempt in place")
+ok(home._reload_on_show, "reconnect does not preserve a post-overlay reload")
+ok(#home.books > 0, "post-overlay reconnect leaves the visible grid empty")
+home.feed_url = nil
+home._feed_fetched = nil
+env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
+
 for _, density in ipairs({ "3x3", "4x4", "5x4" }) do
     home:set_density(density)
     UIManager:drain()
@@ -214,6 +246,17 @@ ok(not drawer_text["Categories"], "drawer still says Categories")
 ok(drawer_text["Unshelved"], "drawer missing Unshelved above Favorites")
 ok(drawer_text["Shelves"], "drawer missing Shelves group")
 UIManager:close(drawer)
+
+-- Drawer dismissal restores pixels captured before the reconnect. Its close
+-- hook must ask Home for the pending reload after that framebuffer restore.
+home._reload_on_show = true
+home.books = {}
+local reconnect_drawer = Drawer:new{ home = home }
+reconnect_drawer:onClose()
+UIManager:drain()
+ok(not home._reload_on_show, "drawer close leaves the reconnect reload pending")
+ok(#home.books > 0, "drawer close leaves the reconnected grid empty")
+
 tap_everything(function() return Drawer:new{ home = home } end, "drawer")
 
 -- ---------- filter sheet ----------

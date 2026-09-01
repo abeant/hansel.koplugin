@@ -315,6 +315,34 @@ function Drawer:onTapOutside(ges)
     return true
 end
 
+function Drawer:onClose()
+    local home = self.home
+    local closed = Base.onClose(self)
+    if home and home.on_overlay_closed then
+        UIManager:nextTick(function()
+            if not home._closed then
+                local status = Session.status and Session.status()
+                if home.library_id and #(home.books or {}) == 0
+                        and status and status.kind == "connected"
+                        and home.open_library then
+                    -- The drawer may be the request that finally proves the
+                    -- connection is healthy. Re-select an empty active library
+                    -- exactly as the user would, even if Home's stale
+                    -- unavailable flag was already cleared by another reload.
+                    home._reload_on_show = nil
+                    home:open_library(home.library_id, home.view_title)
+                else
+                    home:on_overlay_closed()
+                end
+                -- Nav refreshes in the drawer can prove the session recovered
+                -- after Home's earlier feed attempt lost the Wi-Fi/DNS race.
+                if home._maybe_reconnect then home:_maybe_reconnect() end
+            end
+        end)
+    end
+    return closed
+end
+
 function Drawer.show(home)
     Nav.harvest()
     local drawer = Drawer:new{ home = home }
