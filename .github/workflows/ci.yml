@@ -40,3 +40,9 @@ jobs:
             *) echo "zip is not rooted at hansel.koplugin/" >&2; exit 1 ;;
           esac
           unzip -l hansel.koplugin.zip | grep -q 'hansel.koplugin/_meta.lua'
+      - name: Upload plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: hansel.koplugin
+          path: hansel.koplugin.zip
+          if-no-files-found: error

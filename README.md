@@ -5,6 +5,7 @@
 <p align="center"><strong>Your Grimmory library is the KOReader home screen.</strong></p>
 
 <p align="center">
+  <a href="https://github.com/abeant/hansel.koplugin/actions/workflows/ci.yml"><img src="https://github.com/abeant/hansel.koplugin/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="https://github.com/abeant/hansel.koplugin/releases/latest"><img src="https://img.shields.io/github/v/release/abeant/hansel.koplugin?style=flat-square&color=2f6fda&label=release" alt="Latest release"></a>
   <a href="https://koreader.rocks/"><img src="https://img.shields.io/badge/KOReader-2024.12%2B-222?style=flat-square" alt="KOReader 2024.12 or newer"></a>
   <a href="https://grimmory.org/"><img src="https://img.shields.io/badge/Grimmory-library-555?style=flat-square" alt="Grimmory"></a>
@@ -16,11 +17,13 @@ OPDS treats Grimmory as a catalog you visit. Download a book, leave the catalog,
 Sign in once. Browse every cover. Open a book, download it, or leave it on the server. The reader holds a cache. The collection stays where you already keep it.
 
 <p align="center">
-  <img src="docs/screens/home.png" width="30%" alt="Classics cover grid in Hansel">
-  <img src="docs/screens/drawer.png" width="30%" alt="Hansel drawer with Grimmory libraries and shelves">
-  <img src="docs/screens/detail.png" width="30%" alt="The War of the Worlds in Hansel">
+  <img src="docs/screens/drawer.png" width="28%" alt="Libraries and shelves">
+  &emsp;&emsp;
+  <img src="docs/screens/home.png" width="28%" alt="Cover grid">
+  &emsp;&emsp;
+  <img src="docs/screens/detail.png" width="28%" alt="Open a book">
 </p>
-<p align="center"><sub>Classics library on KOReader. Public-domain covers only.</sub></p>
+<p align="center"><sub>Pick a library. See the covers. Open a book.</sub></p>
 
 ## Install
 
@@ -44,8 +47,9 @@ Hansel runs anywhere KOReader loads plugins: Android, Kobo, Kindle, PocketBook, 
 - **Built for e-ink.** Large targets, no animation theater, Comfortable / Compact / Dense grids.
 
 <p align="center">
-  <img src="docs/screens/filters.png" width="42%" alt="Hansel filters">
-  <img src="docs/screens/filters-sort.png" width="42%" alt="Hansel sort controls">
+  <img src="docs/screens/filters.png" width="38%" alt="Hansel filters">
+  &emsp;&emsp;
+  <img src="docs/screens/filters-sort.png" width="38%" alt="Hansel sort controls">
 </p>
 
 ## How it compares
