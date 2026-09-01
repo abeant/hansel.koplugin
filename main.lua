@@ -273,7 +273,9 @@ function Hansel:onSuspend()
 end
 
 function Hansel:onNetworkConnected()
-    if _live and _live._sync_grimmory then
+    if _live and _live.on_network_connected then
+        _live:on_network_connected()
+    elseif _live and _live._sync_grimmory then
         _live:_sync_grimmory()
     end
     ProgressSync.on_network_connected()

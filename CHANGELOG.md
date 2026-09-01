@@ -31,6 +31,7 @@ First Hansel release. Plugin files live at the repo root.
 - Sync/flush/shelf taps split across ticks. Catalog dumps once on idle. Hide overlay only on Session offline/server_error. Close/suspend persist without drain HTTP. Hash rebuild is one file per tick.
 - Category/tag/series/author/shelf page turns no longer jump to “2 / 1” with an empty shelf. A missing feed-page cache is not an empty library: those views page over the catalog, same as All Books.
 - Test connection now refreshes the Settings Connection row (it used to toast “signed in” while the row still said not checked).
+- The open library now refreshes after Grimmory reconnects, including when Android misses KOReader's network-connected event and the next user interaction reveals the live connection.
 
 ### Changed
 
