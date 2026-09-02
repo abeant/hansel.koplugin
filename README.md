@@ -90,6 +90,13 @@ Reach for the official plugin when you want real two-way sync. Reach for OPDS wh
 
 ## Pairs with Gretel
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/pair/hansel-x-gretel-dark.svg">
+    <img src="docs/pair/hansel-x-gretel.svg" width="640" alt="Hansel × Gretel: the Hansel lockup, a cross, and the Gretel lockup">
+  </picture>
+</p>
+
 Hansel makes the library the first thing KOReader shows. [Gretel](https://github.com/abeant/gretel) makes KOReader the first thing the device shows. Put them together on an Android e-reader and the device boots straight into your Grimmory library: press Home and you're back at your covers, not at an app grid.
 
 They're independent. Gretel is a small, free Android home app that works with any reading app. Hansel runs on every KOReader device, Android or not, with or without Gretel.
