@@ -28,8 +28,11 @@ local worker_epoch = 0
 local stand_down_cache
 local stand_down_checked_at = 0
 
+-- Link-level, not KOReader's internet DNS probe: a LAN-only Grimmory must
+-- still sync.
 local function online()
-    return NetworkMgr and NetworkMgr.isOnline and NetworkMgr:isOnline()
+    if Session.network_available then return Session.network_available() end
+    return NetworkMgr and NetworkMgr.isWifiOn and NetworkMgr:isWifiOn()
 end
 
 local function decode(body)

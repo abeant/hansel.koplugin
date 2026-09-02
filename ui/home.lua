@@ -471,16 +471,17 @@ function Home:set_density(key)
     self:reload()
 end
 
+local function network_available()
+    local ok, Session = pcall(require, "lib.session")
+    if ok and Session and Session.network_available then
+        return Session.network_available()
+    end
+    return true
+end
+
 function Home:_sync_grimmory()
     if self._syncing or not Settings.can_browse() then return end
-    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_n and NetworkMgr then
-        local available = NetworkMgr.isOnline and NetworkMgr:isOnline()
-        if not available and NetworkMgr.isWifiOn then
-            available = NetworkMgr:isWifiOn()
-        end
-        if not available then return end
-    end
+    if not network_available() then return end
     self._syncing = true
     local function alive()
         return not self._closed
@@ -562,33 +563,88 @@ function Home:on_network_connected()
     self:_sync_grimmory()
 end
 
---- Android does not always deliver KOReader's NetworkConnected event when
---- Wi-Fi is toggled outside KOReader, and isOnline() can retain the old result
---- even after the radio has associated. Treat the next interaction/show as a
---- fallback signal when either the route or Wi-Fi state is live. Rate-limit the
---- fallback so a radio without a working route cannot stall every tap.
-function Home:_maybe_reconnect()
-    if self._closed or not self.unavailable then return end
-    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
-    if not ok_n or not NetworkMgr then return end
-    local online = NetworkMgr.isOnline and NetworkMgr:isOnline()
-    if not online and NetworkMgr.isWifiOn then
-        online = NetworkMgr:isWifiOn()
+--- The link went away. Repaint from cache so the on-device overlay appears
+--- without waiting for a request to time out. If an overlay is covering Home,
+--- defer the (full e-ink) repaint until it shows again.
+function Home:on_network_disconnected()
+    if self._closed then return end
+    self:_cancel_recovery()
+    self._reload_after_sync = nil
+    if UIManager:isWidgetShown(self) then
+        self:reload(false)
+    else
+        self._reload_on_show = true
     end
-    if not online then return end
+end
+
+--- While Grimmory is unreachable but the link is up, retry on a timer with
+--- backoff (21s, 42s, ... capped at 5 min) instead of waiting for a tap.
+--- Idempotent: reloads while a timer is pending do not reset or escalate it.
+--- The attempt counter only advances when a probe fires and Home is still
+--- unavailable afterwards.
+function Home:_schedule_recovery()
+    if self._closed then return end
+    if not self.unavailable then
+        self:_cancel_recovery()
+        self._recovery_attempts = 0
+        return
+    end
+    if self._recovery_fn then return end
+    if self.error_kind == "auth_required" or self.error_kind == "forbidden" then return end
+    if not network_available() then return end
+    local ok_s, Session = pcall(require, "lib.session")
+    local base = (ok_s and Session and Session.PROBE_COOLDOWN or 20) + 1
+    local attempts = self._recovery_attempts or 0
+    local delay = math.min(300, base * (2 ^ math.min(attempts, 4)))
+    local fn
+    fn = function()
+        if self._recovery_fn ~= fn then return end
+        self._recovery_fn = nil
+        if self._closed or not self.unavailable then return end
+        self._reconnect_attempted_at = nil
+        self._recovery_attempts = (self._recovery_attempts or 0) + 1
+        local acted = self:_maybe_reconnect()
+        -- A probe that ran ends in reload(), which re-arms or resets this
+        -- timer. One that could not run must re-arm itself or the chain dies.
+        if not acted and not self._closed and self.unavailable then
+            self:_schedule_recovery()
+        end
+    end
+    self._recovery_fn = fn
+    UIManager:scheduleIn(delay, fn)
+end
+
+function Home:_cancel_recovery()
+    if self._recovery_fn and UIManager.unschedule then
+        UIManager:unschedule(self._recovery_fn)
+    end
+    self._recovery_fn = nil
+end
+
+--- Android does not always deliver KOReader's NetworkConnected event when
+--- Wi-Fi is toggled outside KOReader. Treat the next interaction/show as a
+--- fallback signal when the link is live. Rate-limit the fallback so a radio
+--- without a working route cannot stall every tap.
+function Home:_maybe_reconnect()
+    if self._closed or not self.unavailable then return false end
+    if not network_available() then return false end
     local ok_s, Session = pcall(require, "lib.session")
     local kind = ok_s and Session and Session.status and Session.status().kind
     -- "connected" is intentional: another surface (most often the drawer)
     -- may have recovered the Session after Home's early feed retry failed.
+    -- The cooldown applies to every kind, so a grid stuck unavailable with a
+    -- healthy Session cannot start a fresh fetch on each tap.
     if kind == "offline" or kind == "server_error" or kind == "connected" then
         local now = os.time()
-        if kind ~= "connected" and self._reconnect_attempted_at
-                and now - self._reconnect_attempted_at < 20 then
-            return
+        if self._reconnect_attempted_at and now - self._reconnect_attempted_at < 20 then
+            return false
         end
         self._reconnect_attempted_at = now
+        if Session.network_changed then Session.network_changed() end
         self:on_network_connected()
+        return true
     end
+    return false
 end
 
 function Home:onTap(arg, ges)
@@ -746,6 +802,7 @@ function Home:reload(force_network)
         Settings.set("last_page", self.page)
         Trapper:clear()
         if self._closed then return end
+        self:_schedule_recovery()
         UIManager:nextTick(function()
             if self._closed then return end
             self:rebuild("full")
@@ -761,11 +818,6 @@ function Home:reload(force_network)
     else
         work()
     end
-end
-
-function Home:onClose()
-    pcall(function() require("lib.catalog").flush() end)
-    return require("ui.base").onClose(self)
 end
 
 function Home:_kick_covers()
@@ -864,11 +916,18 @@ function Home:onSwipe(_, ges)
     return false
 end
 
-function Home:onClose()
-    if self._closed then return true end
+--- Shared teardown. UIManager:close(home) from main.lua reaches
+--- onCloseWidget without onClose, so both hooks go through here.
+function Home:_teardown()
     self._closed = true
+    self:_cancel_recovery()
     Covers.cancel()
     pcall(function() require("lib.manifest").cancel() end)
+end
+
+function Home:onClose()
+    if self._closed then return true end
+    self:_teardown()
     UIManager:close(self)
     if self._on_close then
         self._on_close()
@@ -877,9 +936,7 @@ function Home:onClose()
 end
 
 function Home:onCloseWidget()
-    self._closed = true
-    Covers.cancel()
-    pcall(function() require("lib.manifest").cancel() end)
+    self:_teardown()
     Base.onCloseWidget(self)
 end
 

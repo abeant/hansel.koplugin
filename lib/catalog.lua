@@ -99,8 +99,24 @@ function Catalog.flush()
     _dirty = false
 end
 
+local _hold = 0
+
+--- Suspend deferred flushes while a caller batches many mutations. Returns a
+--- release function; releasing writes if anything is dirty. Explicit
+--- Catalog.flush() still works while held.
+function Catalog.hold_flush()
+    _hold = _hold + 1
+    local released = false
+    return function()
+        if released then return end
+        released = true
+        _hold = math.max(0, _hold - 1)
+        if _hold == 0 then Catalog.flush() end
+    end
+end
+
 function Catalog.schedule_flush()
-    if not _dirty or _flush_queued then return end
+    if not _dirty or _flush_queued or _hold > 0 then return end
     _flush_queued = true
     local ok, UIManager = pcall(require, "ui/uimanager")
     if ok and UIManager and UIManager.nextTick then
@@ -123,6 +139,23 @@ local function page_key(view, page, size)
     return string.format("%s:%d:%d", view or "all", tonumber(page) or 1, tonumber(size) or 12)
 end
 
+-- Page records are keyed by every feed URL ever browsed. Keep the most
+-- recent MAX_PAGES so the persisted table (rewritten on every flush) stays
+-- bounded.
+local MAX_PAGES = 200
+
+local function trim_pages()
+    local keys = {}
+    for key in pairs(_data.pages) do keys[#keys + 1] = key end
+    if #keys <= MAX_PAGES then return end
+    table.sort(keys, function(a, b)
+        return (tonumber(_data.pages[a].fetched_at) or 0) < (tonumber(_data.pages[b].fetched_at) or 0)
+    end)
+    for i = 1, #keys - MAX_PAGES do
+        _data.pages[keys[i]] = nil
+    end
+end
+
 function Catalog.put_page(view, page, size, books, total)
     open()
     local key = page_key(view, page, size)
@@ -142,6 +175,7 @@ function Catalog.put_page(view, page, size, books, total)
         size = tonumber(size) or 12,
     }
     logger.dbg("[hansel] catalog page store", view or "all", page, size, #ids)
+    trim_pages()
     mark_dirty()
 end
 

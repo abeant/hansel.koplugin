@@ -1,6 +1,25 @@
 # Changelog
 
-## [0.3.0] — Unreleased
+## Unreleased
+
+### Fixed
+
+- Online/offline detection keys off the device's network link (`NetworkMgr:isConnected`), not KOReader's internet DNS probe. A LAN-only Grimmory no longer locks Hansel into offline mode, and a Wi-Fi drop is reflected immediately instead of after a request times out.
+- A transport failure with the link up now reads **Server unavailable** rather than **Offline**; **Offline** means the device has no network.
+- While Grimmory is unreachable with the link up, Home retries on a backoff timer (21s, 42s, … capped at 5 min) instead of waiting for a tap. `NetworkDisconnected` repaints from cache at once; `NetworkConnected` clears the probe cooldown.
+- OPDS-only accounts report connection health from their own fetches, so shelves and feeds refresh for them too.
+- Auto sync, cover fetches, the account screen, and the manifest walk all use the same link check, so they run on a LAN without internet.
+- Token refresh and password login now respect the calling request's timeout budget instead of a fixed 8s/15s, so a stale token found during a 3s nav fetch cannot stall the UI for half a minute.
+- Auto sync HTTP on Android uses 2s/4s timeouts (it runs on the UI thread there) to stay under the ANR budget.
+- Home teardown through `UIManager:close` now cancels the recovery timer; a duplicate, dead `Home:onClose` was removed.
+
+### Changed
+
+- Settings writes are skipped when a scalar value is unchanged, and cache-map writes are coalesced to one per tick and only mark the library snapshot stale when a book's on-device state actually changes.
+- The catalog keeps the 200 most recent page records instead of growing forever, and the full-library manifest walk flushes every five pages instead of every page.
+- Cover downloads that fail are retried with backoff (5 min doubling to 1 h) instead of on every repaint.
+
+## [0.3.0] — 2026-09-01
 
 First Hansel release. Plugin files live at the repo root.
 
@@ -10,7 +29,7 @@ First Hansel release. Plugin files live at the repo root.
 - **Hide unavailable books** (default on): when Grimmory is unreachable, only show downloaded ∪ pinned books.
 - **On this device** drawer row (browse) plus a separate Settings storage panel.
 - Auto sync of reading progress (percent + XPointer). Off until you turn it on. Stands down if `grimmory.koplugin` or same-origin KO Progress sync is already active.
-- Start with → hansel, and a **Show Hansel** gesture.
+- Start with → Hansel, and a **Show Hansel** gesture.
 - Test connection from Settings.
 - Comfortable / Compact / Dense grid (3×3 / 4×4 / 5×4).
 - Hansel lockup (`hansel.svg`) on the GitHub README and the library drawer.

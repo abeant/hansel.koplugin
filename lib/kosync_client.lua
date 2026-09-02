@@ -12,6 +12,16 @@ local function decode(body)
     return ok and value or nil
 end
 
+-- On Android, Background.run cannot fork, so these calls run on the UI
+-- thread. Keep them well under the 5s ANR budget there.
+local function timeouts()
+    local ok, Device = pcall(require, "device")
+    if ok and Device and Device.isAndroid and Device:isAndroid() then
+        return 2, 4
+    end
+    return 4, 8
+end
+
 local function headers(credentials)
     return {
         ["x-auth-user"] = credentials.username,
@@ -57,8 +67,9 @@ function Client.get(credentials, digest)
     local origin = Settings.server_url()
     if not origin or not credentials or not digest then return response(false, 0) end
     local url = Origin.koreader_sync(origin) .. "/syncs/progress/" .. tostring(digest)
+    local block, total = timeouts()
     local ok, status, body = Http.get(url, {
-        headers = headers(credentials), timeout_block = 4, timeout_total = 8,
+        headers = headers(credentials), timeout_block = block, timeout_total = total,
     })
     return response(ok, status, body)
 end
@@ -74,8 +85,9 @@ function Client.put(credentials, snapshot)
         device = snapshot.device,
         device_id = snapshot.device_id,
     }
+    local block, total = timeouts()
     local ok, status, body = Http.put_json(Origin.koreader_sync(origin) .. "/syncs/progress",
-        payload, { headers = headers(credentials), timeout_block = 4, timeout_total = 8 })
+        payload, { headers = headers(credentials), timeout_block = block, timeout_total = total })
     return response(ok, status, body)
 end
 

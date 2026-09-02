@@ -273,12 +273,19 @@ function Hansel:onSuspend()
 end
 
 function Hansel:onNetworkConnected()
+    pcall(function() require("lib.session").network_changed() end)
     if _live and _live.on_network_connected then
         _live:on_network_connected()
     elseif _live and _live._sync_grimmory then
         _live:_sync_grimmory()
     end
     ProgressSync.on_network_connected()
+end
+
+function Hansel:onNetworkDisconnected()
+    if _live and _live.on_network_disconnected then
+        _live:on_network_disconnected()
+    end
 end
 
 function Hansel:onCloseDocument()

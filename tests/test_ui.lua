@@ -201,6 +201,77 @@ ok(home._reload_on_show, "reconnect does not preserve a post-overlay reload")
 ok(#home.books > 0, "post-overlay reconnect leaves the visible grid empty")
 home.feed_url = nil
 home._feed_fetched = nil
+
+-- Grimmory unreachable with the link up: Home retries on its own timer
+-- instead of waiting for a tap, and the timer dies with the widget.
+env.NetworkMgr.wifi_on = true
+require("lib.session").note(false, 0)
+home.unavailable = true
+home.error_kind = "server_error"
+home._recovery_attempts = 0
+home:_schedule_recovery()
+local armed = home._recovery_fn
+ok(armed ~= nil, "recovery timer not scheduled while unreachable")
+-- Incidental reloads while a timer is pending must not reset or escalate it.
+home:_schedule_recovery()
+ok(home._recovery_fn == armed, "pending recovery timer was replaced by a reload")
+ok(home._recovery_attempts == 0, "attempt counted before any probe fired")
+UIManager:drain()
+ok(not home.unavailable, "recovery timer did not reconnect the grid")
+ok(home._recovery_fn == nil, "recovery timer left armed after reconnect")
+ok(home._recovery_attempts == 0, "attempt counter not reset after recovery")
+-- Repeated taps within the cooldown do not restart the fetch, even when the
+-- Session already reads connected.
+home.unavailable = true
+home._reconnect_attempted_at = os.time()
+ok(not home:_maybe_reconnect(), "tap inside the cooldown restarted a fetch")
+home._reconnect_attempted_at = nil
+home.unavailable = false
+-- Sign-in problems are not retried on a timer.
+home.unavailable = true
+home.error_kind = "auth_required"
+home:_schedule_recovery()
+ok(home._recovery_fn == nil, "recovery timer armed for a sign-in problem")
+-- Neither is a link that is down.
+home.error_kind = "offline"
+env.NetworkMgr.wifi_on = false
+home:_schedule_recovery()
+ok(home._recovery_fn == nil, "recovery timer armed with the link down")
+home.unavailable = false
+home.error_kind = nil
+require("lib.session").reset()
+
+-- A link drop repaints from cache at once when Home is on screen, and
+-- defers the repaint when an overlay covers it.
+local reload_calls = 0
+local orig_reload = home.reload
+home.reload = function(self, force) reload_calls = reload_calls + 1 return orig_reload(self, force) end
+local saved_stack = UIManager.stack
+UIManager.stack = {}
+home._reload_on_show = nil
+home:on_network_disconnected()
+ok(reload_calls == 0, "link drop repainted a covered Home")
+ok(home._reload_on_show, "link drop under an overlay did not defer the repaint")
+home._reload_on_show = nil
+UIManager.stack = { home }
+home:on_network_disconnected()
+ok(reload_calls == 1, "link drop did not reload the grid")
+UIManager.stack = saved_stack
+home.reload = orig_reload
+UIManager:drain()
+-- Teardown via the framework hook (UIManager:close) must cancel the timer too.
+home.unavailable = true
+home.error_kind = "server_error"
+env.NetworkMgr.wifi_on = true
+home:_schedule_recovery()
+ok(home._recovery_fn ~= nil, "recovery timer not armed before teardown check")
+local was_closed = home._closed
+home:onCloseWidget()
+ok(home._recovery_fn == nil, "onCloseWidget left the recovery timer armed")
+home._closed = was_closed
+home.unavailable = false
+home.error_kind = nil
+
 env.NetworkMgr.online = false
 env.NetworkMgr.wifi_on = false
 
@@ -499,10 +570,19 @@ require("lib.session").adopt({
 local Account = require("ui.account")
 sync_stub_enabled = true
 local account_changes = 0
+-- Link up but the internet DNS probe failing (LAN-only Grimmory) must not
+-- mark the session offline.
+env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = true
 local account = Account:new{
     home = home,
     on_changed = function() account_changes = account_changes + 1 end,
 }
+UIManager:drain()
+ok(require("lib.session").status().kind ~= "offline",
+    "account screen marked the session offline on a LAN-only link")
+env.NetworkMgr.wifi_on = false
+account_changes = 0
 paint(account, "connected account")
 check_targets(account, "connected account")
 ok(#account._draw.hits >= 3, "connected account is missing status/sync actions")

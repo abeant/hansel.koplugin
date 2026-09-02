@@ -13,6 +13,20 @@ local GAP = 0.25
 local _gen = 0
 local _busy = false
 
+-- The walk upserts hundreds of books per page. Hold the catalog flush while
+-- it runs and write every FLUSH_EVERY pages (and on every exit) instead of
+-- rewriting the whole table once per page.
+local FLUSH_EVERY = 5
+local _release
+
+local function release_catalog()
+    if _release then
+        local fn = _release
+        _release = nil
+        fn()
+    end
+end
+
 function Manifest.busy()
     return _busy
 end
@@ -20,11 +34,14 @@ end
 function Manifest.cancel()
     _gen = _gen + 1
     _busy = false
+    release_catalog()
 end
 
+-- Link-level, same signal as the rest of the plugin (never the DNS probe).
 local function online()
-    local ok, NetworkMgr = pcall(require, "ui/network/manager")
-    return ok and NetworkMgr and NetworkMgr.isOnline and NetworkMgr:isOnline()
+    local ok, Session = pcall(require, "lib.session")
+    if not ok or not Session or not Session.network_available then return true end
+    return Session.network_available()
 end
 
 function Manifest.fresh()
@@ -60,15 +77,23 @@ function Manifest.ensure()
         return gen == _gen and Settings.account_key() == identity
     end
 
+    local function stop()
+        _busy = false
+        release_catalog()
+    end
+
     local function step()
         if not account_unchanged() then
-            if gen == _gen then _busy = false end
+            if gen == _gen then stop() end
             return
         end
         local Library = require("lib.library")
         if not origin then
-            _busy = false
+            stop()
             return
+        end
+        if not _release and Catalog.hold_flush then
+            _release = Catalog.hold_flush()
         end
         local feed_url = tier2
             and (origin .. "/api/v1/books/page")
@@ -81,11 +106,11 @@ function Manifest.ensure()
             })
         end, function(ok_worker, result)
             if not account_unchanged() then
-                if gen == _gen then _busy = false end
+                if gen == _gen then stop() end
                 return
             end
             if not ok_worker or not result or result.unavailable then
-                _busy = false
+                stop()
                 logger.dbg("[hansel] manifest stop", page)
                 return
             end
@@ -97,10 +122,11 @@ function Manifest.ensure()
             if total > 0 then Settings.set_library_total(total) end
             local got = result.books and #result.books or 0
             if got < PAGE or (page * PAGE) >= total then
-                _busy = false
+                stop()
                 logger.dbg("[hansel] manifest done", Catalog.book_count(), total)
                 return
             end
+            if page % FLUSH_EVERY == 0 then Catalog.flush() end
             page = page + 1
             UIManager:scheduleIn(GAP, step)
         end)

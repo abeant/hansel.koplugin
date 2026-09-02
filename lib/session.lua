@@ -32,9 +32,31 @@ local function identity(origin, username)
     return origin .. "\n" .. username
 end
 
+--- Link-level network state. KOReader's isOnline() resolves an internet
+--- hostname (blocking DNS), which is false for a LAN-only Grimmory and can
+--- stall the UI thread, so it is never used here. Only an explicit `false`
+--- from the platform counts as down.
+local function network_available()
+    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
+    if not ok_n or type(NetworkMgr) ~= "table" then return true end
+    for _, name in ipairs({ "isConnected", "isWifiOn" }) do
+        if type(NetworkMgr[name]) == "function" then
+            local ok, up = pcall(NetworkMgr[name], NetworkMgr)
+            if ok and up ~= nil then return up and true or false end
+        end
+    end
+    return true
+end
+
+Session.network_available = network_available
+
+--- A transport failure (status 0) means "offline" only when the device has no
+--- link. With Wi-Fi up it means Grimmory did not answer: server unavailable.
 local function classify(status)
     status = tonumber(status) or 0
-    if status == 0 then return "offline" end
+    if status == 0 then
+        return network_available() and "server_error" or "offline"
+    end
     if status == 401 then return "auth_required" end
     if status == 403 then return "forbidden" end
     if status == 404 then return "not_found" end
@@ -114,29 +136,61 @@ function Session.reset()
     state = { kind = "unknown", checked_at = 0, status = 0 }
 end
 
+--- Effective connection state. Without a network link the answer is
+--- "offline" regardless of the last HTTP result, so a Wi-Fi drop is reflected
+--- without waiting for a request to fail.
 function Session.status()
+    local network = network_available()
+    local kind, status = state.kind, state.status
+    if not network then
+        kind, status = "offline", 0
+    end
     return {
-        kind = state.kind,
+        kind = kind,
         checked_at = state.checked_at,
-        status = state.status,
+        status = status,
         configured = Settings.has_tier2(),
+        network = network,
     }
 end
 
 -- After Grimmory fails, do not keep probing. Each probe is 8–15s on the
 -- Lua thread and that is the Android ANR (close/wait) on this device.
 local PROBE_COOLDOWN = 20
+Session.PROBE_COOLDOWN = PROBE_COOLDOWN
+
+local function in_cooldown()
+    return (now() - (state.checked_at or 0)) < PROBE_COOLDOWN
+end
 
 function Session.should_probe()
-    local ok_n, NetworkMgr = pcall(require, "ui/network/manager")
-    if ok_n and NetworkMgr and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
-        return false
-    end
-    if state.kind == "offline" or state.kind == "server_error" then
-        return (now() - (state.checked_at or 0)) >= PROBE_COOLDOWN
+    if not network_available() then return false end
+    local kind = state.kind
+    if kind == "connected" then return true end
+    if kind == "offline" or kind == "server_error" or kind == "invalid_response" then
+        return not in_cooldown()
     end
     -- unknown/checking/auth: never stall a tap or boot to find out.
-    return state.kind == "connected"
+    return false
+end
+
+--- The link came back (NetworkConnected, or a user tap that noticed it).
+--- Drop the failure cooldown so the very next fetch may probe.
+function Session.network_changed()
+    if state.kind == "offline" or state.kind == "server_error" then
+        state.checked_at = 0
+    end
+end
+
+--- Record the outcome of a request that did not go through Session (OPDS
+--- Basic auth). Keeps health truthful for accounts without a Grimmory login.
+function Session.note(ok, status)
+    if ok then
+        set_state("connected", status)
+    else
+        set_state(classify(status), status)
+    end
+    return ok
 end
 
 function Session.peek_token()
@@ -169,7 +223,18 @@ function Session.mark_offline()
     set_state("offline", 0)
 end
 
-function Session.login(origin, username, password)
+-- Login and refresh default to a generous budget for explicit sign-in, but
+-- never exceed what the calling request asked for: a 3s nav fetch must not
+-- turn into a 30s auth chain on the UI thread.
+local AUTH_BLOCK, AUTH_TOTAL = 8, 15
+
+local function auth_timeouts(opts)
+    local block = math.min(AUTH_BLOCK, tonumber(opts and opts.timeout_block) or AUTH_BLOCK)
+    local total = math.min(AUTH_TOTAL, tonumber(opts and opts.timeout_total) or AUTH_TOTAL)
+    return { timeout_block = block, timeout_total = total }
+end
+
+function Session.login(origin, username, password, opts)
     origin = Origin.from_any(origin)
     if not origin or not username or username == "" or not password or password == "" then
         set_state("auth_required", 401)
@@ -179,7 +244,7 @@ function Session.login(origin, username, password)
     local ok, status, body = Http.post_json(Origin.login(origin), {
         username = username,
         password = password,
-    }, { timeout_block = 8, timeout_total = 15 })
+    }, auth_timeouts(opts))
     if not ok then
         local kind = classify(status)
         set_state(kind, status)
@@ -193,7 +258,7 @@ function Session.login(origin, username, password)
     return result(true, status, payload)
 end
 
-local function refresh(origin, username)
+local function refresh(origin, username, opts)
     local refresh_token = Settings.refresh_token()
     if refresh_token == "" then return nil end
     if Settings.get("t2_token_origin") ~= origin
@@ -202,7 +267,7 @@ local function refresh(origin, username)
     end
     local ok, status, body = Http.post_json(origin .. "/api/v1/auth/refresh", {
         refreshToken = refresh_token,
-    }, { timeout_block = 8, timeout_total = 15 })
+    }, auth_timeouts(opts))
     if not ok then
         if status == 401 or status == 403 then Settings.clear_tokens() end
         return result(false, status, body)
@@ -214,7 +279,7 @@ local function refresh(origin, username)
     return result(true, status, payload)
 end
 
-function Session.ensure_token(force)
+function Session.ensure_token(force, opts)
     if not Settings.has_tier2() then
         set_state("auth_required", 401)
         return nil, result(false, 401, "no Grimmory account")
@@ -233,14 +298,15 @@ function Session.ensure_token(force)
     end
 
     set_state("checking", 0)
-    local refreshed = refresh(origin, username)
+    local refreshed = refresh(origin, username, opts)
     if refreshed and refreshed.ok then return access_token end
-    if refreshed and refreshed.error_kind == "offline" then
-        set_state("offline", refreshed.status)
+    if refreshed and refreshed.status == 0 then
+        -- Transport failed. A password login would fail the same way.
+        set_state(refreshed.error_kind, 0)
         return nil, refreshed
     end
 
-    local logged = Session.login(origin, username, Settings.t2_password())
+    local logged = Session.login(origin, username, Settings.t2_password(), opts)
     if logged.ok then return access_token end
     return nil, logged
 end
@@ -249,7 +315,7 @@ function Session.request(method, path, opts)
     opts = opts or {}
     local origin = Settings.server_url()
     if not origin then return result(false, 0, "no origin") end
-    local token, token_error = Session.ensure_token(false)
+    local token, token_error = Session.ensure_token(false, opts)
     if not token then return token_error or result(false, 401, "no token") end
 
     local function send(bearer)
@@ -269,7 +335,7 @@ function Session.request(method, path, opts)
         access_token = nil
         access_expires_at = 0
         local retry_error
-        token, retry_error = Session.ensure_token(true)
+        token, retry_error = Session.ensure_token(true, opts)
         if token then
             retried = true
             ok, status, body = send(token)

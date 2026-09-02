@@ -10,6 +10,8 @@ local _root
 local _data
 local _identity
 local _rev = 0
+local _dirty = false
+local _flush_queued = false
 local _on_device_ids
 
 local function current_identity()
@@ -134,12 +136,43 @@ function CacheMap.load()
     return _data
 end
 
+--- Write only when something changed.
 function CacheMap.flush()
     open()
-    _rev = _rev + 1
-    _on_device_ids = nil
+    if not _dirty then return end
+    _dirty = false
     _file:saveSetting("cache", _root)
     _file:flush()
+end
+
+--- Coalesce a burst of mutations (open_book does several) into one write on
+--- the next tick.
+local function schedule_flush()
+    _dirty = true
+    if _flush_queued then return end
+    local ok, UIManager = pcall(require, "ui/uimanager")
+    if ok and UIManager and UIManager.nextTick then
+        _flush_queued = true
+        UIManager:nextTick(function()
+            _flush_queued = false
+            CacheMap.flush()
+        end)
+        return
+    end
+    CacheMap.flush()
+end
+
+--- Bookkeeping-only writes (last_access, open_path) persist but do not
+--- change which books are on the device, so they must not invalidate the
+--- library snapshot that Library.query builds from this map.
+local function mark_meta()
+    schedule_flush()
+end
+
+local function mark_content()
+    _rev = _rev + 1
+    _on_device_ids = nil
+    schedule_flush()
 end
 
 function CacheMap.revision()
@@ -169,12 +202,12 @@ function CacheMap.local_path(id)
     if found then
         e = entry(id)
         e.path = found
-        CacheMap.flush()
+        mark_content()
         return found
     end
     if e and e.path then
         e.path = nil
-        CacheMap.flush()
+        mark_content()
     end
     return nil
 end
@@ -255,7 +288,7 @@ function CacheMap.record_download(id, path, bytes, opts)
     e.last_access = os.time()
     e.owned = opts.owned ~= false
     e.hash = opts.hash or file_hash(path)
-    CacheMap.flush()
+    mark_content()
 end
 
 function CacheMap.record_seen(id, path)
@@ -265,20 +298,20 @@ function CacheMap.record_seen(id, path)
     e.hash = file_hash(path)
     e.owned = false
     e.last_access = os.time()
-    CacheMap.flush()
+    mark_content()
 end
 
 function CacheMap.touch(id)
     local e = CacheMap.get(id)
     if not e then return end
     e.last_access = os.time()
-    CacheMap.flush()
+    mark_meta()
 end
 
 function CacheMap.set_pinned(id, pinned)
     local e = entry(id)
     e.pinned = pinned and true or false
-    CacheMap.flush()
+    mark_content()
 end
 
 function CacheMap.is_pinned(id)
@@ -288,8 +321,9 @@ end
 
 function CacheMap.set_open_path(path)
     open()
+    if _data.open_path == path then return end
     _data.open_path = path
-    CacheMap.flush()
+    mark_meta()
 end
 
 function CacheMap.open_path()
@@ -331,6 +365,7 @@ function CacheMap.rebuild_by_hash()
             e.path = path
             e.owned = false
             e.bytes = file_size(path)
+            mark_content()
         end
         if ok_ui and UIManager and UIManager.nextTick then
             UIManager:nextTick(step)
@@ -358,7 +393,7 @@ function CacheMap.remove(id, delete_file)
     e.path = nil
     e.bytes = nil
     e.pinned = false
-    CacheMap.flush()
+    mark_content()
     return true
 end
 
@@ -439,7 +474,7 @@ function CacheMap.id_for_path(path, allow_hash)
         if e.hash == hash then
             e.path = path
             e.bytes = file_size(path)
-            CacheMap.flush()
+            mark_content()
             return id
         end
     end
@@ -468,12 +503,17 @@ function CacheMap.mark_opened(id, path)
     e.last_opened = os.time()
     e.last_access = os.time()
     if path and is_file(path) then
+        local was_on_device = e.path ~= nil
         e.path = path
         e.bytes = file_size(path)
         if e.hash == nil then e.hash = file_hash(path) end
         if e.owned == nil then e.owned = false end
+        if not was_on_device then
+            mark_content()
+            return
+        end
     end
-    CacheMap.flush()
+    mark_meta()
 end
 
 function CacheMap.relocate_to(dir)
@@ -490,6 +530,7 @@ function CacheMap.relocate_to(dir)
             end
         end
     end
+    mark_content()
     CacheMap.flush()
 end
 
@@ -510,6 +551,7 @@ function CacheMap.rebuild_from_disk(dir)
             end
         end
     end
+    mark_content()
     CacheMap.flush()
     logger.dbg("[hansel] rebuilt cache map from", dir)
 end

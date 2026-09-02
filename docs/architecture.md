@@ -29,6 +29,8 @@ One-release migration still reads `dork_*.lua` and the inner `dork` settings key
 
 Catalog and queue buckets are scoped by normalized server origin + account. Downloads default to KOReader Home and remain in place across sign-out.
 
+Writes are coalesced: the catalog and cache map mark themselves dirty and flush on the next UI tick (the manifest walk holds the catalog flush and writes every five pages), and `Settings.set` skips unchanged scalars. The catalog keeps at most 200 page records.
+
 ## Tiers
 
 - **Tier 1** — OPDS Basic auth (Devices / OPDS user). Browse, covers, download, open, pin, cache.
@@ -38,7 +40,8 @@ Passwords, rotating refresh tokens, and native sync keys are XOR’d with a buil
 
 ## Session and known library
 
-- Access JWTs refresh 60 seconds before expiry. A 401 invalidates, refreshes or password-falls-back once, then retries the original call once.
+- Connection state is the last HTTP outcome overlaid with the device link. `Session.network_available()` reads `NetworkMgr:isConnected()` (falling back to `isWifiOn()`), never the DNS-based `isOnline()`, so a LAN-only server is not "offline". With the link down `Session.status()` reports `offline` without a request; a status-0 transport failure with the link up is `server_error`. Probes back off for 20 s after a failure; `NetworkConnected` clears that cooldown, `NetworkDisconnected` repaints Home from cache, and Home retries an unreachable server on a 21 s → 5 min backoff timer while the link is up.
+- Access JWTs refresh 60 seconds before expiry. A 401 invalidates, refreshes or password-falls-back once, then retries the original call once. Refresh and login inherit the calling request's timeout budget.
 - Transport, authentication, permission, and 5xx failures retain distinct state; only authentication trouble asks the user to reconnect.
 - `All` queries one known-library snapshot: account-scoped catalog metadata + the current server page + local downloads, deduplicated by Grimmory id. Device/status/format filters and sorting run before pagination.
 - Legacy URL-keyed REST pages are reindexed as canonical `all` pages. Page-size changes can fall back to any saved logical page or the `by_id` manifest.
