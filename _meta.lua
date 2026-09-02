@@ -6,6 +6,6 @@ return {
     name = "hansel",
     fullname = _("Hansel"),
     description = _([[A server-first home screen for KOReader. Grimmory is the library; the device holds a cache.]]),
-    version = "0.3.0",
+    version = "0.3.1",
     repository = "abeant/hansel.koplugin",
 }

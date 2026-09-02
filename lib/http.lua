@@ -92,7 +92,7 @@ function Http.request(url, opts)
             headers[k] = v
         end
     end
-    headers["User-Agent"] = headers["User-Agent"] or "hansel.koplugin/0.3.0"
+    headers["User-Agent"] = headers["User-Agent"] or "hansel.koplugin/0.3.1"
     headers["Accept-Encoding"] = headers["Accept-Encoding"] or "identity"
     Http.apply_conditional(headers, opts)
 
