@@ -31,8 +31,8 @@ Catalog and queue buckets are scoped by normalized server origin + account. Down
 
 ## Tiers
 
-- **Tier 1** - OPDS Basic auth (Devices / OPDS user). Browse, covers, download, open, pin, cache.
-- **Tier 2** - Grimmory account login. REST catalog/navigation, truthful health status, and Auto sync provisioning. SSO-only users can remain on Tier 1.
+- **Tier 1**: OPDS Basic auth (Devices / OPDS user). Browse, covers, download, open, pin, cache.
+- **Tier 2**: Grimmory account login. REST catalog/navigation, truthful health status, and Auto sync provisioning. SSO-only users can remain on Tier 1.
 
 Passwords, rotating refresh tokens, and native sync keys are XOR’d with a built-in key mixed with `device_id`, then base64 (`d1:…`). This is obfuscation, not encryption. Access JWTs remain memory-only.
 
@@ -56,7 +56,7 @@ pinned is never LRU-evicted. The file KOReader currently has open is never delet
 ## UI / e-ink
 
 - Full refresh (`UIManager:setDirty(self, "full")`) on page/view change.
-- Interactive catalog/account requests run inside `Trapper`; manifest refresh and native progress HTTP run on the next UI tick on Android (no `runInSubProcess` - it aborts).
+- Interactive catalog/account requests run inside `Trapper`; manifest refresh and native progress HTTP run on the next UI tick on Android (no `runInSubProcess`; it aborts).
 - Home is a `covers_fullscreen` overlay on File Manager (same pattern as Bookshelf): the FM stays loaded underneath so the system menu still works.
 
 ## Auto sync

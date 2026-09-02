@@ -2,7 +2,7 @@
 Filter & sort.
 
 Two things live here: the predicate/comparator pair the grid runs on, and the
-bottom sheet that edits them. The sheet edits a copy - APPLY commits, closing
+bottom sheet that edits them. The sheet edits a copy; APPLY commits, closing
 it discards, exactly like the wireframe.
 ]]
 
@@ -198,7 +198,7 @@ function Filter.state(home)
     return defaults()
 end
 
---- Downloaded ∪ pinned - the same set as today's Downloaded chip.
+--- Downloaded ∪ pinned: the same set as today's Downloaded chip.
 function Filter.on_device(state)
     local st = normalize(state or Filter.state())
     st.device = "downloaded"

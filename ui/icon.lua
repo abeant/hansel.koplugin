@@ -38,7 +38,7 @@ local SHAPES = {
                          {5,5, 7.5,7.5}, {16.5,16.5, 19,19}, {19,5, 16.5,7.5}, {7.5,16.5, 5,19}} },
     hash    = { lines = {{9,3, 6,21}, {18,3, 15,21}, {3,8, 21,8}, {3,16, 21,16}} },
     folder  = { lines = {{3,7, 3,20, 21,20, 21,7, 11,7, 9,4, 3,4, 3,7}} },
-    -- Lucide `shapes`: triangle, square, circle - kinds, not a folder.
+    -- Lucide `shapes`: triangle, square, circle: kinds, not a folder.
     shapes  = { lines = {{12,2, 6,13, 18,13, 12,2}}, boxes = {{3,14,8,8}},
                 rings = {{18,18,4}} },
     library = { boxes = {{3,7,5,14}, {10,4,5,17}, {17,9,4,12}} },

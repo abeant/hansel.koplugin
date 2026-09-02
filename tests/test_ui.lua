@@ -1,7 +1,7 @@
 --[[--
 Drives every hansel screen against the KOReader stubs: builds each layout, then
 taps every registered target and rebuilds. Catches the class of bug that took
-the filter sheet down - a layout that only explodes when you touch it.
+the filter sheet down: a layout that only explodes when you touch it.
 ]]
 
 package.path = "./?.lua;./tests/?.lua;" .. package.path
@@ -225,7 +225,7 @@ home:rebuild()
 paint(home, "home hide-unavailable banner")
 local banner_text = collected_text(home)
 ok(banner_text["Showing books on this device"], "home missing hide-unavailable banner")
-ok(not banner_text["Offline - showing saved books"], "home kept the old offline banner")
+ok(not banner_text["Offline: showing saved books"], "home kept the old offline banner")
 home.unavailable = false
 home.hide_unavailable_active = false
 home:rebuild()

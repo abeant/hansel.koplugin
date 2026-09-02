@@ -1,5 +1,5 @@
 --[[--
-hansel.koplugin - server-first home screen for KOReader.
+hansel.koplugin: server-first home screen for KOReader.
 
 Registers Start with → Hansel, takes over the File Manager on launch when
 configured, and talks to Grimmory over OPDS (Tier 1) plus optional login

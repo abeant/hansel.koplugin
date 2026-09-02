@@ -166,7 +166,7 @@ eq(Library.parse_facet(author_url).value, "Author 01", "parse encoded author")
 eq(Library.parse_facet(shelf_url).value, "17", "parse shelf id")
 eq(Library.parse_facet(magic_url).value, "magic:8", "parse magic shelf")
 
--- Only page 1 of the Horror feed is cached - this is the live bug setup.
+-- Only page 1 of the Horror feed is cached: this is the live bug setup.
 local horror_page1 = {}
 for i = 1, 9 do horror_page1[i] = by_id[tostring(i)] end
 Catalog.put_page(horror_url, 1, 9, horror_page1, 25)

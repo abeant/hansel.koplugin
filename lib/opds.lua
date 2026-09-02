@@ -1,5 +1,5 @@
 -- Grimmory OPDS 1.x (Atom) parser. Identity is the Grimmory book id taken
--- from /api/v1/opds/{id}/download or /cover - never filename or title.
+-- from /api/v1/opds/{id}/download or /cover, never filename or title.
 
 local Origin = require("lib.origin")
 

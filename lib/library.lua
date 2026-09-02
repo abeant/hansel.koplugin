@@ -428,7 +428,7 @@ function Library.page(view, page, size)
     page = tonumber(page) or 1
     size = tonumber(size) or Settings.page_size()
     local cached = Catalog.get_page(view, page, size)
-    -- Never HTTP here. Unavailable only if we already know Grimmory is down -
+    -- Never HTTP here. Unavailable only if we already know Grimmory is down;
     -- skipping a probe is not the same as the server being unreachable.
     local down, kind = library_unreachable()
     local offline = (down and kind == "offline") and true or false

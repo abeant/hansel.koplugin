@@ -4,7 +4,7 @@ A tiny retained draw list.
 Screens lay themselves out in absolute coordinates once, in `build`, and keep
 an ordered list of paint closures plus a list of tap rectangles. That buys the
 hairline-exact geometry the wireframe is drawn in without stacking twenty
-nested containers per screen - and without a container ever ending up childless,
+nested containers per screen, and without a container ever ending up childless,
 which is what took the filter sheet down.
 ]]
 

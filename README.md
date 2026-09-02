@@ -14,7 +14,7 @@
 
 Your books are on the server. Your reading happens on a device across the room. Getting from one to the other usually means browsing on a laptop, pushing files over USB or a share, and then digging through folders on the reader to find what you just sent it.
 
-Hansel closes that gap. It takes over the KOReader home screen and points it straight at [Grimmory](https://grimmory.org/) - every cover, every shelf, every author, read live off the server the moment you open the device. Tap a cover and the book downloads and opens. Pin the ones that should stay put. Everything else remains on the server, one tap away.
+Hansel closes that gap. It takes over the KOReader home screen and points it straight at [Grimmory](https://grimmory.org/). Every cover, every shelf, every author, read live off the server the moment you open the device. Tap a cover and the book downloads and opens. Pin the ones that should stay put. Everything else remains on the server, one tap away.
 
 <table align="center">
   <tr>
@@ -53,10 +53,10 @@ Then make it the front door: **File Manager → Settings → Start with → Hans
 
 - **One grid holds everything.** Books on the server, books you've downloaded, and books you've pinned all sit in the same cover grid. There's no separate downloads screen to go check.
 - **Your shelves come along.** Libraries, shelves, magic shelves, genres, tags, series, and authors are read from Grimmory and ordered the way you ordered them there.
-- **Long-press a cover to decide.** Read, Download, Pin so it survives cleanup, or Remove from device. Removing touches the local copy only - the server's record is never modified.
+- **Long-press a cover to decide.** Read, Download, Pin so it survives cleanup, or Remove from device. Removing touches the local copy only; the server's record is never modified.
 - **Narrow it down without leaving the grid.** Filter by on-device state, library, shelf, status, or format. Sort by title, author, date added, published date, series position, rating, size, or last opened.
 - **It still works when the server doesn't.** Covers and catalog pages are cached, so the grid paints while you're offline. Switch on **Hide unavailable books** and it narrows to what's genuinely on the device until Grimmory answers again.
-- **Progress sync is opt-in.** It's off until you turn it on, and it stands down completely if the official Grimmory plugin is already syncing - the two won't fight over your page position.
+- **Progress sync is opt-in.** It's off until you turn it on, and it stands down completely if the official Grimmory plugin is already syncing, so the two won't fight over your page position.
 - **Built for e-ink.** Large tap targets, no animation, and three grid densities depending on how much screen you have.
 
 <table align="center">
@@ -92,7 +92,7 @@ Reach for the official plugin when you want real two-way sync. Reach for OPDS wh
 |---|---|
 | KOReader | 2024.12 or newer |
 | Server | A reachable [Grimmory](https://grimmory.org/) instance |
-| Devices | Android, Kobo, Kindle, PocketBook, reMarkable - anywhere KOReader loads plugins |
+| Devices | Android, Kobo, Kindle, PocketBook, reMarkable, anywhere KOReader loads plugins |
 | Language | Lua 5.1 / LuaJIT |
 | Licence | [AGPL-3.0](LICENSE) |
 
@@ -101,7 +101,7 @@ Hansel is an independent project. It is not affiliated with or endorsed by Grimm
 ## Questions
 
 **Do I have to keep the whole library on the reader?**
-No - that's the point. Browse all of it, download what you're reading, pin what must not be cleaned up.
+No. That's the point. Browse all of it, download what you're reading, pin what must not be cleaned up.
 
 **What happens when Grimmory is down?**
 Hansel paints from the last catalog it cached. With **Hide unavailable books** on, the grid falls back to your downloads and pins until the server comes back.
@@ -116,7 +116,7 @@ Yes. Close Hansel, or just don't set it as **Start with**.
 Only the Grimmory login you already have. There's no Hansel service and no second account.
 
 **Why "Hansel"?**
-Breadcrumbs. Wander as deep into the collection as you like - the trail back to the library is always on screen.
+Breadcrumbs. Wander as deep into the collection as you like: the trail back to the library is always on screen.
 
 ## Build from source
 

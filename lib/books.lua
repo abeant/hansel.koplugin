@@ -75,7 +75,7 @@ function Books.hydrate(book, opts)
         end
     end
     -- Snapshot/filter path: trust the cache map. Stat the disk only for the
-    -- visible page - 700 lfs.attributes calls is the 5–10s boot hang.
+    -- visible page: 700 lfs.attributes calls is the 5–10s boot hang.
     if opts and opts.disk == false then
         if not book.state then
             local e = CacheMap.get(book.id)

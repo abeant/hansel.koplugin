@@ -1,5 +1,5 @@
 --[[--
-The library screen: header, cover grid, pager. Matches the wireframe -
+The library screen: header, cover grid, pager. Matches the wireframe:
 menu on the left, funnel and density on the right, page turns flash.
 ]]
 
@@ -754,7 +754,7 @@ function Home:reload(force_network)
             -- until a later ensure_token, and that HTTP is the boot ANR.
         end)
     end
-    -- Trapper inhibits input. Don't wrap a cached catalog reload - that is
+    -- Trapper inhibits input. Don't wrap a cached catalog reload; that is
     -- what made tapping a Home row look like a freeze.
     if force_network then
         Trapper:wrap(work)
