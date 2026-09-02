@@ -14,6 +14,7 @@ package.loaded["lib.session"] = {
     reset = function() end,
     peek_token = function() return "jwt" end,
     status = function() return { kind = "connected", checked_at = os.time() } end,
+    network_available = function() return env.NetworkMgr:isConnected() end,
 }
 package.loaded["lib.background"] = {
     run = function(task, done)
@@ -75,6 +76,7 @@ api_handler = function(method, path)
     return { ok = true, status = 200, body = {} }
 end
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 local enabled, enable_err = ProgressSync.set_enabled(true)
 ok(enabled, "existing native credentials enable: " .. tostring(enable_err))
 eq(Settings.get("sync_username"), "native-reader", "existing native username reused")
@@ -148,6 +150,7 @@ local rolling_state = { percent = 0.31, xpointer = "/body/section[3]", page = 1 
 local rolling = rolling_ui("/books/rolling.epub", rolling_state)
 mapping[rolling.document.file] = "42"
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 local before_gets = gets
 ProgressSync.on_reader_ready(rolling)
 env.UIManager:drain()
@@ -189,6 +192,7 @@ eq(ReopenedQueue.get("42", Settings.account_key()).xpointer, "/body/section[4]",
 -- A connection arriving after close still performs pull-before-push with no
 -- reader object left alive.
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 remote_replies = { { ok = true, status = 200, body = { percentage = 0.20 } } }
 before_gets = gets
 local before_puts = puts
@@ -213,6 +217,7 @@ eq(last_put.xpointer, "/body/section[4]", "wire push includes exact XPointer")
 eq(last_put.percentage, 0.42, "wire push includes fractional percent")
 eq(Queue.count(Settings.account_key()), 0, "successful push drains queue")
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 ProgressSync.on_close_document()
 Queue.clear(Settings.account_key())
 
@@ -221,6 +226,7 @@ local paged_state = { percent = 0.25, page = 25, pages = 100 }
 local paged = paged_ui("/books/paged.pdf", paged_state)
 mapping[paged.document.file] = "7"
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 remote_replies = { { ok = true, status = 200, body = { percentage = 0.40 } } }
 before_puts = puts
 env.UIManager.stack = {}
@@ -255,6 +261,7 @@ eq(#env.UIManager.queue, 0, "applied remote page event is suppressed")
 ProgressSync.on_page_update(50)
 eq(#env.UIManager.queue, 1, "ten real turns still schedule normally")
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 ProgressSync.on_close_document()
 Queue.clear(Settings.account_key())
 
@@ -262,6 +269,7 @@ Queue.clear(Settings.account_key())
 env.UIManager.queue = {}
 env.UIManager.stack = {}
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 remote_replies = {
     { ok = true, status = 200, body = { percentage = 0.40 } },
     { ok = true, status = 200, body = { percentage = 0.40 } },
@@ -274,6 +282,7 @@ prompt.cancel_callback()
 eq(puts - before_puts, 1, "keep-device choice overrides the confirmed remote lead")
 eq(last_put.xpointer, nil, "paged wire payload has no XPointer or CFI")
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 ProgressSync.on_close_document()
 Queue.clear(Settings.account_key())
 
@@ -284,6 +293,7 @@ Queue.put("7", {
     keep_device = true,
 }, Settings.account_key())
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 env.UIManager.stack = {}
 remote_replies = {
     { ok = true, status = 200, body = { percentage = 0.40 } },
@@ -295,6 +305,7 @@ env.UIManager:drain()
 eq(puts - before_puts, 1, "persisted keep-device resolution pushes after re-open")
 eq(#env.UIManager.stack, 0, "persisted keep-device resolution does not re-prompt")
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 ProgressSync.on_close_document()
 Queue.clear(Settings.account_key())
 
@@ -302,6 +313,7 @@ Queue.clear(Settings.account_key())
 env.UIManager.queue = {}
 env.UIManager.stack = {}
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 remote_replies = { { ok = true, status = 200, body = { percentage = 0.40 } } }
 ProgressSync.on_reader_ready(paged)
 env.UIManager:drain()
@@ -310,9 +322,11 @@ env.UIManager:close(prompt)
 eq(#ProgressSync.blocked_conflicts(), 1, "closed prompt still lists the block")
 ok(not ProgressSync.resolve_conflict("7", "neither"), "unknown choice is rejected")
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 ProgressSync.on_close_document()
 eq(#ProgressSync.blocked_conflicts(), 1, "closed book still lists dismissed conflict")
 env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
 remote_replies = { { ok = true, status = 200, body = { percentage = 0.40 } } }
 before_puts = puts
 ok(ProgressSync.resolve_conflict("7", "device"), "later keep-device resolve")
@@ -330,6 +344,7 @@ eq(Queue.get("7", Settings.account_key()), nil, "later Grimmory resolve drops lo
 eq(puts, before_puts, "later Grimmory resolve does not push device progress")
 eq(#ProgressSync.blocked_conflicts(), 0, "later Grimmory resolve clears the list")
 env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 Queue.clear(Settings.account_key())
 
 -- Both competing sync implementations make Hansel stand down without changing preference.

@@ -214,8 +214,13 @@ end
 local NetworkMgr = {
     online = false,
     wifi_on = false,
+    connected = nil,
     isOnline = function(self) return self.online end,
     isWifiOn = function(self) return self.wifi_on end,
+    isConnected = function(self)
+        if self.connected ~= nil then return self.connected end
+        return self.wifi_on
+    end,
     willRerunWhenOnline = function() return false end,
 }
 
@@ -311,6 +316,7 @@ function Stub.install()
     UIManager.bb = BB.new(1072, 1448)
     NetworkMgr.online = false
     NetworkMgr.wifi_on = false
+    NetworkMgr.connected = nil
     _G.G_reader_settings = {
         readSetting = function(_, key) return reader_settings[key] end,
         saveSetting = function(_, key, value) reader_settings[key] = value end,

@@ -77,10 +77,8 @@ local function ensure_cache_identity()
 end
 
 local function can_probe()
-    local ok, Session = pcall(require, "lib.session")
-    if ok and Session and Session.should_probe then
-        return Session.should_probe()
-    end
+    local Session = require("lib.session")
+    if Session and Session.should_probe then return Session.should_probe() end
     return true
 end
 

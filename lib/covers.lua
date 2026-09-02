@@ -12,6 +12,28 @@ local _token = 0
 local _busy = false
 local _on_done = nil
 local _hits = {}
+-- Covers that failed to download, keyed by destination path (which carries
+-- the account scope). Retried with backoff instead of on every rebuild.
+local _failed = {}
+local FAIL_BASE = 5 * 60
+local FAIL_MAX = 60 * 60
+
+local function fail_cooldown(count)
+    return math.min(FAIL_MAX, FAIL_BASE * (2 ^ math.max(0, count - 1)))
+end
+
+local function recently_failed(dest)
+    local row = _failed[dest]
+    if not row then return false end
+    return (os.time() - row.at) < fail_cooldown(row.count)
+end
+
+local function note_failure(dest)
+    local row = _failed[dest] or { count = 0 }
+    row.count = row.count + 1
+    row.at = os.time()
+    _failed[dest] = row
+end
 
 function Covers.scope()
     local identity = Settings.account_key()
@@ -122,16 +144,21 @@ function Covers.fetch_one(book, cred)
     end
     if ok then
         _hits[tostring(book.id)] = dest
+        _failed[dest] = nil
         return dest
     end
+    note_failure(dest)
     pcall(os.remove, dest)
     pcall(os.remove, dest .. ".part")
     return nil
 end
 
 local function can_fetch_covers()
-    if not Settings.has_tier2() then return true end
     local ok, Session = pcall(require, "lib.session")
+    if ok and Session and Session.network_available and not Session.network_available() then
+        return false
+    end
+    if not Settings.has_tier2() then return true end
     if not ok or not Session then return false end
     if Session.peek_token and Session.peek_token() then return true end
     if Session.should_probe and Session.should_probe() then return true end
@@ -172,10 +199,17 @@ end
 
 local function enqueue(books)
     for _, book in ipairs(books or {}) do
-        if book and book.id and not Covers.cached(book.id) and (book.cover_url or Settings.server_url()) then
+        if book and book.id and not Covers.cached(book.id)
+                and (book.cover_url or Settings.server_url())
+                and not recently_failed(Covers.path(book.id)) then
             _queue[#_queue + 1] = book
         end
     end
+end
+
+--- Forget failures (used when the user asks for a fresh fetch).
+function Covers.forget_failures()
+    _failed = {}
 end
 
 function Covers.fetch_visible(books, on_done)

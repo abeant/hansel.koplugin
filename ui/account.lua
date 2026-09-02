@@ -69,8 +69,11 @@ function Account:setup()
     if Settings.has_tier2() then
         UIManager:nextTick(function()
             if self._closed then return end
-            local online = NetworkMgr.isOnline and NetworkMgr:isOnline()
-            if online then self:check_connection(false) else Session.mark_offline() end
+            if Session.network_available() then
+                self:check_connection(false)
+            else
+                Session.mark_offline()
+            end
         end)
     end
 end
@@ -112,7 +115,7 @@ function Account:check_connection(explicit)
             and NetworkMgr:willRerunWhenOnline(go) then
         return
     end
-    if not explicit and NetworkMgr.isOnline and not NetworkMgr:isOnline() then
+    if not explicit and not Session.network_available() then
         Session.mark_offline()
         self:rebuild("ui")
         return

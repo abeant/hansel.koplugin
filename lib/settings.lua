@@ -107,6 +107,9 @@ end
 
 function Settings.set(key, value)
     open()
+    -- Scalars that did not change are not worth a synchronous disk write.
+    -- Tables may have been mutated in place, so they always flush.
+    if type(value) ~= "table" and _data[key] == value then return end
     _data[key] = value
     Settings.flush()
 end

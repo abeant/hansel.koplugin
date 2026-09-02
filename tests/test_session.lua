@@ -39,6 +39,10 @@ Settings.load()
 Settings.set_server_url("http://grimmory.test:6060")
 Settings.set_t2_credentials("reader", "secret")
 local Session = require("lib.session")
+local NetworkMgr = require("ui/network/manager")
+-- The link is up for the HTTP-level checks below; it is dropped explicitly
+-- where "no network" is the thing under test.
+NetworkMgr.wifi_on = true
 
 local checks = 0
 local function ok(value, message)
@@ -103,9 +107,11 @@ Session.adopt({ accessToken = "server-expired", refreshToken = "refresh-offline"
     Settings.server_url(), "reader")
 request_replies = { { false, 401, "expired" } }
 refresh_reply = { false, 0, "network disappeared" }
+NetworkMgr.wifi_on = false
 local retry_offline = Session.request("GET", "/api/v1/books/page")
 eq(retry_offline.error_kind, "offline", "401 refresh transport remains offline")
 eq(Session.status().kind, "offline", "retry transport does not claim sign-in failure")
+NetworkMgr.wifi_on = true
 
 -- A rejected refresh falls back to the retained account password once.
 Session.adopt({ accessToken = "expired-again", refreshToken = "bad-refresh", expires = 1 },
@@ -122,10 +128,19 @@ eq(calls.login - before_logins, 1, "password fallback logs in once")
 eq(calls.last_authorization, "Bearer password-fallback", "fallback token used")
 
 -- Transport, authorization, and server failures remain distinct states.
+NetworkMgr.wifi_on = false
 request_replies = { { false, 0, "network down" } }
 local offline = Session.request("GET", "/api/v1/books/page")
 eq(offline.error_kind, "offline", "transport classified offline")
 eq(Session.status().kind, "offline", "offline session state")
+NetworkMgr.wifi_on = true
+
+-- The same transport failure with the link up is Grimmory not answering,
+-- not the device being offline.
+request_replies = { { false, 0, "timeout" } }
+local unanswered = Session.request("GET", "/api/v1/books/page")
+eq(unanswered.error_kind, "server_error", "timeout with link up is server unavailable")
+eq(Session.status().kind, "server_error", "link up + no answer is not offline")
 
 request_replies = { { false, 403, "forbidden" } }
 local forbidden = Session.request("GET", "/api/v1/books/page")
@@ -155,24 +170,43 @@ eq(Session.status().kind, "auth_required", "sign-in state is truthful")
 -- After a transport failure, do not keep probing (each probe is an ANR).
 Session.adopt({ accessToken = "still-valid", refreshToken = "refresh-1", expires = 3600 },
     Settings.server_url(), "reader")
-request_replies = { { false, 0, "network down" } }
+request_replies = { { false, 0, "timeout" } }
 local down = Session.request("GET", "/api/v1/books/page")
-eq(down.error_kind, "offline", "transport classified offline for cooldown")
-local NetworkMgr = require("ui/network/manager")
-NetworkMgr.online = true
-ok(not Session.should_probe(), "should_probe is false during offline cooldown")
-ok(not Session.should_probe() or Session.status().kind == "connected",
-    "unknown/offline never probes")
-NetworkMgr.online = false
+eq(down.error_kind, "server_error", "transport classified for cooldown")
+ok(not Session.should_probe(), "should_probe is false during failure cooldown")
+-- A link change ends the cooldown so the next fetch may probe at once.
+Session.network_changed()
+ok(Session.should_probe(), "network change clears the cooldown")
+
+-- A healthy session with the link gone reads offline without any HTTP, and
+-- never probes while the link is down.
+Session.adopt({ accessToken = "healthy", refreshToken = "refresh-1", expires = 3600 },
+    Settings.server_url(), "reader")
+eq(Session.status().kind, "connected", "healthy session is connected")
+NetworkMgr.wifi_on = false
+eq(Session.status().kind, "offline", "link down reads offline immediately")
+ok(not Session.status().network, "status exposes the link state")
+ok(not Session.should_probe(), "no probes while the link is down")
+NetworkMgr.wifi_on = true
+eq(Session.status().kind, "connected", "link back restores the last HTTP state")
+-- isConnected wins over isWifiOn when the platform provides it.
+NetworkMgr.connected = false
+eq(Session.status().kind, "offline", "isConnected false is offline")
+NetworkMgr.connected = nil
+
+-- OPDS-only accounts report health through Session.note.
+Session.note(false, 0)
+eq(Session.status().kind, "server_error", "note records a failed OPDS fetch")
+Session.note(true, 200)
+eq(Session.status().kind, "connected", "note records a good OPDS fetch")
 
 Session.reset()
 eq(Session.status().kind, "unknown", "reset returns to unknown")
+ok(not Session.should_probe(), "unknown never probes")
 refresh_reply = { false, 0, "network down" }
 login_reply = { false, 0, "network down" }
-NetworkMgr.online = true
 eq(Session.try_unknown_token(), nil, "unknown refresh can fail")
 eq(Session.status().kind, "unknown", "failed unknown refresh does not set offline")
-NetworkMgr.online = false
 
 -- Test connection used to toast "signed in" without refreshing Settings.
 Session.reset()

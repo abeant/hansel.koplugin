@@ -14,13 +14,28 @@ local Library = {}
 local cached_failure
 local snap
 
+local function session()
+    local ok, Session = pcall(require, "lib.session")
+    return ok and Session or nil
+end
+
 local function error_kind(status)
+    local Session = session()
+    if Session and Session.classify then return Session.classify(status) end
     status = tonumber(status) or 0
     if status == 0 then return "offline" end
     if status == 401 then return "auth_required" end
     if status == 403 then return "forbidden" end
     if status >= 500 then return "server_error" end
     return "invalid_response"
+end
+
+-- OPDS Basic-auth requests bypass Session. Without a Grimmory login they are
+-- the only health signal there is, so feed their outcome back.
+local function note_transport(ok, status)
+    if Settings.has_tier2() then return end
+    local Session = session()
+    if Session and Session.note then Session.note(ok, status) end
 end
 
 local function t1_creds()
@@ -49,6 +64,7 @@ function Library.fetch_page(view, page, size)
         timeout_block = 4,
         timeout_total = 8,
     })
+    note_transport(ok, code)
     if not ok then
         logger.warn("[hansel] catalog fetch failed", code)
         return cached_failure(view, page, size, {
@@ -256,8 +272,8 @@ local function filter_facet(books, facet)
 end
 
 local function can_probe()
-    local ok, Session = pcall(require, "lib.session")
-    if ok and Session and Session.should_probe then
+    local Session = session()
+    if Session and Session.should_probe then
         return Session.should_probe()
     end
     return true
@@ -377,6 +393,7 @@ function Library.fetch_feed(url, page, size, opts)
         timeout_block = 4,
         timeout_total = 8,
     })
+    note_transport(ok, code)
     if not ok then
         logger.warn("[hansel] feed fetch failed", code)
         return cached_failure(cache_key, page, size, {
@@ -406,8 +423,8 @@ function Library.fetch_feed(url, page, size, opts)
 end
 
 local function library_unreachable()
-    local ok_s, Session = pcall(require, "lib.session")
-    if ok_s and Session and Session.status then
+    local Session = session()
+    if Session and Session.status then
         local kind = Session.status().kind
         if kind == "offline" or kind == "server_error" then
             return true, kind

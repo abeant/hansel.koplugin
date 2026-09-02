@@ -141,18 +141,27 @@ local hidden_remote = Library.query(remote_state, 1, 20)
 eq(#hidden_remote.books, 4, "hide unavailable overlays Server only onto on-device books")
 eq(remote_state.device, "remote", "Server only filter is not rewritten")
 
+-- With the link down, the library is unreachable even before any request
+-- fails: the on-device overlay applies immediately.
 Session.reset()
-env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
 Settings.set("hide_unavailable", true)
 local wifi_off = Library.query(all_state, 1, 20)
-eq(#wifi_off.books, 5, "wifi-off is not Grimmory-down overlay")
-ok(not wifi_off.hide_unavailable_active, "NetworkMgr down does not hide the catalog")
-env.NetworkMgr.online = true
+eq(#wifi_off.books, 4, "link down applies the on-device overlay without HTTP")
+ok(wifi_off.hide_unavailable_active, "link down marks the overlay")
+eq(wifi_off.error_kind, "offline", "link down reads offline")
+-- Link up with no request made yet is not Grimmory-down.
+env.NetworkMgr.wifi_on = true
 Settings.set("hide_unavailable", true)
 local live = Library.query(all_state, 1, 20)
 eq(#live.books, 5, "wifi up does not fake Grimmory-down overlay")
 ok(not live.hide_unavailable_active, "skipped HTTP is not unavailable")
-env.NetworkMgr.online = false
+-- Link up but Grimmory not answering is server unavailable, not offline.
+Session.note(false, 0)
+local unanswered = Library.query(all_state, 1, 20)
+ok(unanswered.hide_unavailable_active, "server not answering applies the overlay")
+eq(unanswered.error_kind, "server_error", "link up + no answer is server unavailable")
+Session.reset()
 
 Settings.set("hide_unavailable", false)
 local downloaded = Library.query(downloaded_state, 1, 20)

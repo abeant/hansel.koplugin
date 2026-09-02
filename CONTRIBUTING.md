@@ -20,9 +20,9 @@ luacheck --no-self _meta.lua main.lua lib ui
 ## Pull requests
 
 - Match the surrounding Lua: short comments, no unused placeholders.
-- Keep user-facing strings as Hansel / Grimmory. Do not add Dork, lattice, or IR product language.
+- Keep user-facing strings as Hansel / Grimmory. Do not reintroduce the old Dork name outside the one-release migration code.
 - LICENSE stays AGPL-3.0.
-- Do not commit `.docs/`, personal library data, or invented screenshots.
+- Do not commit personal library data or invented screenshots.
 - Device screenshots go in `docs/screens/` and must use the public-domain Classics library. See `scripts/shots.md` for the complete shot list and privacy checklist.
 
 ## License
