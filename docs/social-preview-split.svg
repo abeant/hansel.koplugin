@@ -37,12 +37,12 @@
       <path d="M5279.43 705.854V168.514H5442.97V572.929H5812.74V705.854H5279.43Z"/>
   </g>
   <text font-family="Charter, 'Iowan Old Style', Georgia, serif" font-size="48" fill="#000">
-    <tspan x="88" y="284">Every book you own,</tspan>
-    <tspan x="88" y="340">on your e-reader.</tspan>
+    <tspan x="88" y="284">5,000 books.</tspan>
+    <tspan x="88" y="340">Room for fifty.</tspan>
   </text>
   <text font-family="Charter, 'Iowan Old Style', Georgia, serif" font-size="23" fill="#444">
-    <tspan x="88" y="390">Browse the whole collection from the device.</tspan>
-    <tspan x="88" y="420">Only what you open gets downloaded.</tspan>
+    <tspan x="88" y="390">Every shelf you built stays intact.</tspan>
+    <tspan x="88" y="420">Tap a cover; only that book downloads.</tspan>
   </text>
   <rect x="88" y="452" width="200" height="3" fill="#bbb"/>
   <text x="88" y="494" font-family="Charter, 'Iowan Old Style', Georgia, serif" font-size="22" fill="#777">A KOReader plugin for Grimmory</text>
