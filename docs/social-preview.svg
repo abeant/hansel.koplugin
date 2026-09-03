@@ -27,6 +27,6 @@
       <path d="M4557.22 168.514H5152.56V290.161H4718.34V382.805H5127.59V489.146H4718.34V584.207H5158.2V705.854H4557.22V168.514Z"/>
       <path d="M5279.43 705.854V168.514H5442.97V572.929H5812.74V705.854H5279.43Z"/>
   </g>
-  <text x="640" y="512" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="32" fill="#000">Your entire library, straight from the home screen.</text>
-  <text x="640" y="542" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#444">Every Grimmory book, every shelf, on KOReader. Only what you open lands on the device.</text>
+  <text x="640" y="512" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="32" fill="#000">Every book you own, on your e-reader.</text>
+  <text x="640" y="542" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#444">Browse the whole collection from the device. Only what you open gets downloaded.</text>
 </svg>
