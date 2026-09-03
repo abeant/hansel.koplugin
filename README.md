@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="hansel.svg" width="420" alt="Hansel">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="hansel-dark.svg">
+    <img src="hansel.svg" width="420" alt="Hansel">
+  </picture>
 </p>
 
 <p align="center"><strong>Your entire Grimmory library, straight from the home screen.</strong></p>
