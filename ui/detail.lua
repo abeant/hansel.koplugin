@@ -133,10 +133,10 @@ function Detail:build(draw)
     local fact_label = Theme.mono("tiny")
     local fact_value = Theme.mono()
     local facts = {
-        { _("Format"), string.upper(tostring(book.file_type or "-")) },
-        { _("Size"), book.file_size and Fmt.bytes(book.file_size) or "-" },
+        { _("Format"), string.upper(tostring(book.file_type or "—")) },
+        { _("Size"), book.file_size and Fmt.bytes(book.file_size) or "—" },
         { _("Status"), STATUS_TEXT[Books.read_status(book)] or STATUS_TEXT.unread },
-        { _("Added"), Fmt.date(book.added_on) ~= "" and Fmt.date(book.added_on) or "-" },
+        { _("Added"), Fmt.date(book.added_on) ~= "" and Fmt.date(book.added_on) or "—" },
     }
     draw:fill(x, y, body_w, Theme.hair, Theme.ash)
     y = y + Theme.hair
