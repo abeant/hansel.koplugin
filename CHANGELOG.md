@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2] — 2026-10-07
+
+### Changed
+
+- Replace the drawer and README lockups with the approved canonical Hansel artwork, retaining uniform proportions and monochrome e-ink presentation. Refresh Gretel pairing lockups to the same canonical source.
+- Document updates that preserve settings, downloads, pins, catalog, and pending progress. Clarify that plugin credentials use reversible local obfuscation rather than encryption or macOS Keychain.
+- Include the dark README lockup and changelog in the plugin archive, exclude macOS metadata, and validate the complete archive before replacing an existing package.
+
 ## [0.3.1] — 2026-09-02
 
 ### Fixed

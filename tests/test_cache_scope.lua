@@ -58,6 +58,8 @@ eq(Covers.path("1"), first_cover, "first account cover scope restored")
 package.loaded["lib.cache_map"] = nil
 CacheMap = require("lib.cache_map")
 eq(CacheMap.get("2").path, "/books/two.pdf", "scoped map survives restart")
+eq(CacheMap.get("1").pinned, true, "pin survives restart")
+eq(CacheMap.get("1").path, "/books/one.epub", "download path survives restart")
 
 eq(Paths.cover_path("7", "scope"), Paths.covers_dir() .. "/scope-7.jpg",
     "scoped cover path fallback")

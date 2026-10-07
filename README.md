@@ -41,6 +41,8 @@ Hansel makes the library the home screen. Open the device and you're looking at 
 3. Restart KOReader. Enable **Hansel** under **Tools → More tools → Plugin management** if it isn't already on.
 4. Open **Tools → Hansel → Show library** and enter your Grimmory URL, username, and password.
 
+**Updating an existing install:** Quit KOReader, replace only the `plugins/hansel.koplugin` folder, then restart. Keep KOReader's settings and Hansel data/cache folders: they hold your sign-in, downloaded books, pins, catalog, and pending progress. Do not uninstall or clear application data to update.
+
 Then make it the front door: in File Manager, open the leftmost menu tab and set **Start with → Hansel**. To jump back from inside a book, bind **Show Hansel** in Gesture Manager.
 
 <table align="center">
@@ -96,7 +98,7 @@ Reach for the official plugin when you want real two-way sync. Reach for OPDS wh
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/pair/hansel-lockup-dark.svg">
-    <img src="docs/pair/hansel-lockup.svg" width="246" height="37" alt="Hansel">
+    <img src="docs/pair/hansel-lockup.svg" width="244" height="37" alt="Hansel">
   </picture>
   &emsp;
   <picture>
@@ -107,7 +109,7 @@ Reach for the official plugin when you want real two-way sync. Reach for OPDS wh
   <a href="https://abeant.com/gretel/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/pair/gretel-lockup-dark.svg">
-      <img src="docs/pair/gretel-lockup.svg" width="234" height="37" alt="Gretel">
+      <img src="docs/pair/gretel-lockup.svg" width="232" height="37" alt="Gretel">
     </picture>
   </a>
 </p>
@@ -145,6 +147,9 @@ Yes. Close Hansel, or just don't set it as **Start with**.
 
 **Does this need an account somewhere?**
 Only the Grimmory login you already have. There's no Hansel service and no second account.
+
+**Where are my credentials and reading data stored?**
+The KOReader plugin keeps credentials and refresh tokens in KOReader settings using reversible obfuscation, not encryption or macOS Keychain. Anyone who can read those files can recover the credentials. Use HTTPS for your Grimmory connection and protect your device and backups. Catalog, covers, download metadata, and pending reading progress are stored locally; enabled progress sync sends reading position to your configured Grimmory server. Hansel has no separate account or analytics service.
 
 **Why "Hansel"?**
 Breadcrumbs. Wander as deep into the collection as you like — the trail back to the library is always on screen.

@@ -24,6 +24,9 @@ package.loaded["lib.settings"] = nil
 local Reopened = require("lib.settings")
 Reopened.load()
 eq(Reopened.get("sort_key"), "title", "dynamic sort survives restart")
+eq(Reopened.t2_password(), "secret", "obfuscated password survives restart")
+eq(Reopened.get("t2_username"), "reader", "account username survives restart")
+eq(Reopened.server_url(), "http://grimmory.test:6060", "server survives restart")
 eq(Reopened.library_total(), 11, "account total survives restart")
 
 Reopened.set_t2_credentials("other", "secret")
