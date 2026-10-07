@@ -495,6 +495,8 @@ local panel = UIManager.stack[#UIManager.stack]
 ok(panel ~= nil, "settings did not open")
 paint(panel, "settings")
     local settings_text = collected_text(panel)
+    ok(settings_text["Hansel " .. dofile("_meta.lua").version],
+        "settings shows the installed plugin metadata version")
     for _, row in ipairs({ "Server", "Connection", "Auto sync", "Test connection",
                            "Grimmory account", "Library", "On this device" }) do
         ok(settings_text[row], "settings missing row " .. row)

@@ -363,4 +363,80 @@ if home:_page_count() >= 2 then
     ok(home.books[1].id ~= dev_first, "on-device page 2 is a new slice")
 end
 
+-- A library with only its first server page known must still offer page 2.
+-- This matches Classics: 20 cached records, but a real total of 24.
+env.NetworkMgr.online = true
+env.NetworkMgr.wifi_on = true
+Settings.set_t2_credentials("classics-paging", "secret")
+Settings.set("grid_density", "5x4")
+local Session = require("lib.session")
+Session.reset()
+Session.note(true, 200)
+local classics_url = ORIGIN .. "/api/v1/books/page?facet=library:4"
+local classics = {}
+for id = 602, 625 do
+    classics[#classics + 1] = {
+        id = tostring(id), title = "Classic " .. id,
+        library_id = "4", file_type = id % 2 == 0 and "epub" or "pdf",
+    }
+end
+local first_twenty = {}
+for i = 1, 20 do first_twenty[i] = classics[i] end
+Catalog.put_page(classics_url, 1, 20, first_twenty, 24)
+local requests = {}
+local API = require("lib.api")
+function API.rest_get(path)
+    requests[#requests + 1] = path
+    local page = tonumber(path:match("[?&]page=(%d+)")) or 0
+    local size = tonumber(path:match("[?&]size=(%d+)")) or 20
+    local content = {}
+    for i = page * size + 1, math.min(24, (page + 1) * size) do
+        local b = classics[i]
+        content[#content + 1] = {
+            id = b.id, libraryId = 4, metadata = { title = b.title },
+            primaryFileType = b.file_type,
+        }
+    end
+    return true, 200, { content = content, page = { totalElements = 24 } }, nil,
+        { ok = true, status = 200 }
+end
+local classics_state = feed_state(classics_url)
+local first = Library.query(classics_state, 1, 20, false)
+eq(first.total, 24, "partial library retains server total")
+eq(#first.books, 20, "partial library first page retained")
+eq(#requests, 0, "cached first page does not refetch")
+local last = Library.query(classics_state, 2, 20, false)
+eq(last.page, 2, "partial library does not clamp missing page to one")
+eq(last.total, 24, "partial library second page keeps server total")
+eq(#last.books, 4, "missing library page fetches remaining four books")
+eq(last.books[1].id, "622", "second library page begins at missing book")
+eq(last.books[4].id, "625", "second library page includes final book")
+eq(#requests, 1, "missing library page makes only one bounded request")
+ok(requests[1]:find("facet=library:4", 1, true), "request stays on selected library")
+ok(requests[1]:find("page=1&size=20", 1, true), "request uses zero-based second page")
+local repeated = Library.query(classics_state, 2, 20, false)
+eq(#requests, 1, "complete catalog still uses cached server page without duplicate fetch")
+eq(repeated.books[1].id, "622", "complete catalog keeps stable server page boundaries")
+local filtered_state = feed_state(classics_url)
+filtered_state.formats = { epub = true }
+local filtered = Library.query(filtered_state, 1, 20, false)
+eq(filtered.total, 12, "format filter counts matching whole known library")
+eq(#filtered.books, 12, "filtered library does not borrow unfiltered server total")
+local downloaded_state = feed_state(classics_url)
+downloaded_state.device = "downloaded"
+eq(Library.query(downloaded_state, 1, 20, false).total, 0,
+    "downloaded library excludes unrelated local books")
+-- Fresh account with only 20 saved classics: offline count must stay at 20,
+-- with no pretend page for the four books not yet cached.
+Settings.set_t2_credentials("classics-offline", "secret")
+Catalog.put_page(classics_url, 1, 20, first_twenty, 24)
+env.NetworkMgr.online = false
+env.NetworkMgr.wifi_on = false
+Session.mark_offline()
+local offline = Library.query(classics_state, 2, 20, false)
+eq(offline.total, 20, "offline library counts only known records")
+eq(offline.page, 1, "offline partial library clamps to saved page")
+eq(#requests, 1, "offline library makes no request")
+ok(offline.offline, "offline library retains offline state")
+
 print("paging: " .. checks .. " ok")

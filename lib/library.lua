@@ -587,9 +587,18 @@ function Library.query(state, page, size, force_network)
         source = unified.known
     end
 
+    -- An online library can contain more books than this device has seen.
+    -- Page its server feed instead of treating a partial local catalog as the
+    -- whole library. Keep filtered/offline views over the local snapshot.
+    if facet and facet.key == "library" and not base.unavailable
+            and not Filter.active(effective)
+            and (tonumber(Catalog.view_total(Library.feed_key(feed_url))) or 0) > 0 then
+        facet = nil
+    end
+
     if facet then
         local matched = filter_facet(source, facet)
-        if #matched > 0 or local_facet then
+        if #matched > 0 or local_facet or facet.key == "library" then
             source = matched
         else
             -- Magic shelves / id facets often aren't on the catalog record.

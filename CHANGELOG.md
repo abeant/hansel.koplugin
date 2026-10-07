@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Show the installed plugin metadata version in Settings instead of a stale hardcoded version.
+- Keep the server's page count for unfiltered online libraries even when only the first page is cached, allowing the remaining books to load. Filtered and offline views retain local counts.
 - Make **Clear cover cache** refresh the active account's artwork, including failed fetches, without removing downloads, pins, reading data, or another account's covers. Scope in-memory cover hits by account to prevent stale artwork after switching logins.
 
 ### Changed
