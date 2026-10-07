@@ -2,6 +2,10 @@
 
 ## [0.3.2] — 2026-10-07
 
+### Fixed
+
+- Make **Clear cover cache** refresh the active account's artwork, including failed fetches, without removing downloads, pins, reading data, or another account's covers. Scope in-memory cover hits by account to prevent stale artwork after switching logins.
+
 ### Changed
 
 - Replace the drawer and README lockups with the approved canonical Hansel artwork, retaining uniform proportions and monochrome e-ink presentation. Refresh Gretel pairing lockups to the same canonical source.

@@ -139,6 +139,9 @@ No — that's the point. Browse all of it, download what you're reading, pin wha
 **What happens when Grimmory is down, or I leave the house?**
 Nothing you have to manage. Hansel notices the connection is gone, paints from the last catalog it cached, and with **Hide unavailable books** on (the default) shows only your downloads and pins. When the server is reachable again it picks the rest back up automatically.
 
+**How do I refresh covers after changing them in Grimmory?**
+Open Hansel's drawer, choose **On this device**, then **Clear cover cache**. Return to the library while connected so visible covers download again. This clears artwork for the active account and keeps downloads, pins, settings, and reading data. It refreshes Hansel's catalog thumbnails; artwork embedded inside an already downloaded book is separate.
+
 **Will it fight the official Grimmory plugin?**
 No. If that plugin is handling progress sync, Hansel detects it and leaves sync alone.
 
