@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.2] — 2026-10-07
+
+### Fixed
+
+- Show the installed plugin metadata version in Settings instead of a stale hardcoded version.
+- Keep the server's page count for unfiltered online libraries even when only the first page is cached, allowing the remaining books to load. Filtered and offline views retain local counts.
+- Make **Clear cover cache** refresh the active account's artwork, including failed fetches, without removing downloads, pins, reading data, or another account's covers. Scope in-memory cover hits by account to prevent stale artwork after switching logins.
+
+### Changed
+
+- Replace the drawer and README lockups with the approved canonical Hansel artwork, retaining uniform proportions and monochrome e-ink presentation. Refresh Gretel pairing lockups to the same canonical source.
+- Document updates that preserve settings, downloads, pins, catalog, and pending progress. Clarify that plugin credentials use reversible local obfuscation rather than encryption or macOS Keychain.
+- Include the dark README lockup and changelog in the plugin archive, exclude macOS metadata, and validate the complete archive before replacing an existing package.
+
 ## [0.3.1] — 2026-09-02
 
 ### Fixed

@@ -11,6 +11,7 @@ local _queue = {}
 local _token = 0
 local _busy = false
 local _on_done = nil
+-- In-memory hits must carry the same account scope as the disk cache.
 local _hits = {}
 -- Covers that failed to download, keyed by destination path (which carries
 -- the account scope). Retried with backoff instead of on every rebuild.
@@ -55,8 +56,12 @@ function Covers.path(book_id)
     return Paths.cover_path(book_id, Covers.scope())
 end
 
+local function hit_key(book_id)
+    return Covers.scope() .. ":" .. tostring(book_id or "")
+end
+
 function Covers.cached(book_id)
-    local id = tostring(book_id or "")
+    local id = hit_key(book_id)
     if _hits[id] then return _hits[id] end
     local path = Covers.path(book_id)
     if lfs.attributes(path, "mode") == "file" then
@@ -68,7 +73,10 @@ function Covers.cached(book_id)
     if lfs.attributes(legacy, "mode") == "file" then
         local ext = legacy:match("(%.[^./]+)$") or ".jpg"
         local target = path:gsub("%.[^./]+$", ext)
-        if os.rename(legacy, target) then return target end
+        if os.rename(legacy, target) then
+            _hits[id] = target
+            return target
+        end
     end
     return nil
 end
@@ -143,7 +151,7 @@ function Covers.fetch_one(book, cred)
         ok = Http.download_file(url, dest, request_opts)
     end
     if ok then
-        _hits[tostring(book.id)] = dest
+        _hits[hit_key(book.id)] = dest
         _failed[dest] = nil
         return dest
     end
@@ -233,6 +241,33 @@ function Covers.cancel()
     _queue = {}
     _busy = false
     _on_done = nil
+end
+
+--- Remove only the active account's cached artwork, never downloaded books.
+function Covers.clear()
+    Covers.cancel()
+    local scope = Covers.scope()
+    local prefix = scope .. "-"
+    local dir = Paths.covers_dir()
+    local removed = 0
+    for key in pairs(_hits) do
+        if key:sub(1, #scope + 1) == scope .. ":" then _hits[key] = nil end
+    end
+    for path in pairs(_failed) do
+        if path:sub(1, #dir + #prefix + 1) == dir .. "/" .. prefix then
+            _failed[path] = nil
+        end
+    end
+    if lfs.attributes(dir, "mode") ~= "directory" then return removed end
+    for name in lfs.dir(dir) do
+        if name:sub(1, #prefix) == prefix then
+            local path = dir .. "/" .. name
+            if lfs.attributes(path, "mode") == "file" and os.remove(path) then
+                removed = removed + 1
+            end
+        end
+    end
+    return removed
 end
 
 function Covers.usage_bytes()

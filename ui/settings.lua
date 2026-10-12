@@ -7,6 +7,7 @@ local T = require("ffi/util").template
 local Base = require("ui.base")
 local CacheMap = require("lib.cache_map")
 local Parts = require("ui.parts")
+local Paths = require("lib.paths")
 local ProgressSync = require("lib.progress_sync")
 local Settings = require("lib.settings")
 local Session = require("lib.session")
@@ -14,7 +15,7 @@ local Theme = require("ui.theme")
 
 local Screen = Device.screen
 
-local VERSION = "0.3.0"
+local VERSION = dofile(Paths.plugin_dir() .. "/_meta.lua").version
 
 local SettingsUI = {}
 
