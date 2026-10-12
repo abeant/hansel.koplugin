@@ -103,6 +103,16 @@ function Http.request(url, opts)
         headers["Content-Type"] = headers["Content-Type"] or "application/json"
     end
 
+    -- Never let automatic redirects forward a credential or request body.
+    -- Public unauthenticated GETs may still follow ordinary download redirects.
+    local authenticated = opts.user ~= nil or opts.password ~= nil or opts.body ~= nil
+    for name in pairs(headers) do
+        local lower = tostring(name):lower()
+        if lower == "authorization" or lower == "proxy-authorization" or lower == "cookie"
+            or lower == "x-auth-user" or lower == "x-auth-key" then
+            authenticated = true
+        end
+    end
     local request = {
         url = url,
         method = opts.method or "GET",
@@ -111,7 +121,7 @@ function Http.request(url, opts)
         sink = sink,
         user = opts.user,
         password = opts.password,
-        redirect = opts.redirect ~= false,
+        redirect = not authenticated and opts.redirect ~= false,
     }
 
     local client = pick_client(url, http, https)
@@ -205,10 +215,9 @@ function Http.download_file(url, dest_path, opts)
     end
     if not ok then
         pcall(os.remove, tmp)
-        pcall(os.remove, dest_path)
         return false, code, body
     end
-    os.remove(dest_path)
+    -- POSIX rename replaces atomically; a failed rename leaves the old book intact.
     local renamed, rename_err = os.rename(tmp, dest_path)
     if not renamed then
         pcall(os.remove, tmp)
