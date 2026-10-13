@@ -10,6 +10,18 @@ Hansel is a KOReader plugin (Lua 5.1 / LuaJIT). The plugin files are at the repo
 
 Needs `luajit` or `lua` on `PATH`. The suite uses stubs in `tests/kostub.lua` and does not talk to Grimmory.
 
+The download replacement regression uses only disposable files in a directory
+that you create; it checks failed rename and empty responses preserve existing
+editions. Run it separately with an explicit interpreter:
+
+```sh
+scratch_dir="$(mktemp -d)"
+lua tests/test_library_download_preservation.lua "$PWD" "$scratch_dir"
+```
+
+Use `luajit` in place of `lua` to check that runtime when installed. The fixture
+leaves its disposable files in the scratch directory for inspection.
+
 ```sh
 luacheck --no-self _meta.lua main.lua lib ui
 ./scripts/package.sh

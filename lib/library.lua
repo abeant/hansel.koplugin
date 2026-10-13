@@ -762,6 +762,13 @@ function Library.download(book)
         if fn then book.filename = fn:gsub("^%s+", ""):gsub("%s+$", "") end
         dest = dir .. "/" .. Paths.library_filename(book, ext)
     end
+    -- Validate before replacing any existing edition, including the ID fallback.
+    local info = lfs.attributes(staged)
+    local bytes = (type(info) == "table" and tonumber(info.size)) or tonumber(info) or 0
+    if bytes == 0 then
+        pcall(os.remove, staged)
+        return false, "empty download"
+    end
     local new_hash = CacheMap.file_hash(staged)
     local function exists(p)
         return lfs.attributes(p) ~= nil
@@ -777,16 +784,10 @@ function Library.download(book)
         dest = dir .. "/" .. (Paths.sanitize_filename(book.title) or "book")
             .. " (" .. tostring(book.id) .. ")." .. ext
     end
-    os.remove(dest)
+    -- POSIX rename commits atomically and retains the destination on failure.
     if not os.rename(staged, dest) then
         pcall(os.remove, staged)
         return false, "rename failed"
-    end
-    local info = lfs.attributes(dest)
-    local bytes = (type(info) == "table" and tonumber(info.size)) or tonumber(info) or 0
-    if bytes == 0 then
-        pcall(os.remove, dest)
-        return false, "empty download"
     end
     CacheMap.record_download(book.id, dest, bytes, { owned = true, hash = new_hash })
     Catalog.upsert_book({ id = book.id, local_path = dest, file_type = ext, file_size = bytes })
